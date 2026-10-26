@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block title %}Consolidação · {{ of['titulo'] }}{% endblock %}
+{% block content %}
+<p class="small"><a href="{{ url_for('oficina', oficina_id=of['id']) }}">← Voltar à oficina</a></p>
+<div class="hero">
+  <h1>Consolidação das respostas</h1>
+  <p>{{ individuais|length }} de {{ total_participantes }} participantes enviaram respostas. Discuta os itens divergentes com o grupo e registre a decisão final de cada um.</p>
+</div>
+
+{% if not individuais %}
+<div class="card"><h2>Nenhuma resposta enviada ainda</h2><p class="muted">A consolidação fica disponível assim que o primeiro participante enviar o questionário.</p></div>
+{% else %}
+
+<div class="card no-print">
+  <div class="row">
+    <div><div class="stat">{{ contagem['alta'] }}</div><span class="small muted">divergência alta</span></div>
+    <div style="margin-left:18px"><div class="stat">{{ contagem['moderada'] }}</div><span class="small muted">divergência moderada</span></div>
+    <div style="margin-left:18px"><div class="stat">{{ contagem['consenso'] }}</div><span class="small muted">em consenso</span></div>
+    <span class="spacer"></span>
+    {% if of['status'] == 'aberta' %}
+    <form method="post" action="{{ url_for('mudar_estado', oficina_id=of['id']) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="status" value="encerrada">
+      <input type="hidden" name="voltar" value="{{ url_for('consolidacao', oficina_id=of['id']) }}">
+      <button class="sm sec" title="Impede novas alterações dos participantes">Encerrar respostas</button>
+    </form>
+    {% endif %}
+  </div>
+  <p class="small muted" style="margin-bottom:0">Consenso: todos iguais, ou ao menos 2/3 na mesma alternativa sem respostas opostas. Divergência alta: respostas nos dois extremos (a e c; ou Não e Sim/Não sei). A alternativa sugerida é a mais frequente; em empate, prevalece a mais precavida.</p>
+</div>
+
+<details class="card" open>
+  <summary><b>Mapa das respostas individuais</b></summary>
+  <div class="table-scroll" style="margin-top:10px"><table class="matrix">
+    <thead><tr><th>Participante</th>
+      {% for c in rules.CRITERIOS %}<th class="{{ 'col-div' if analise[c['codigo']]['status'] != 'consenso' }}">{{ c['codigo'] }}</th>{% endfor %}
+      {% for t in rules.CONDICOES %}<th class="{{ 'col-div' if analise[t['codigo']]['status'] != 'consenso' }}">{{ t['codigo'] }}</th>{% endfor %}
+    </tr></thead>
+    <tbody>
+    {% for ind in individuais %}
+      <tr><td><span class="nome">{{ ind['nome'] }}</span></td>
+        {% for c in rules.CRITERIOS %}{% set v = ind['respostas'].get(c['codigo']) %}
+          <td class="{{ 'col-div' if analise[c['codigo']]['status'] != 'consenso' }}"><span class="cell lv{{ v }}">{{ rules.letra(v) }}</span></td>{% endfor %}
+        {% for t in rules.CONDICOES %}{% set v = ind['respostas'].get(t['codigo']) %}
+          <td class="{{ 'col-div' if analise[t['codigo']]['status'] != 'consenso' }}"><span class="cell tv-{{ v }}" title="{{ rules.RESPOSTAS_T.get(v, '') }}">{{ {'yes':'S','no':'N','partial':'P','unknown':'?'}.get(v, '–') }}</span></td>{% endfor %}
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  <p class="tiny muted">Critérios: a, b, c (tom mais escuro = maior nível). Condições: S = Sim, N = Não, P = Parcialmente, ? = Não sei. Colunas destacadas têm divergência.</p>
+</details>
+
+<div class="row no-print" style="margin:18px 0 6px">
+  <div class="filters" role="group" aria-label="Filtrar itens">
+    <button type="button" class="on" data-f="todos">Todos</button>
+    <button type="button" data-f="div">Só divergentes</button>
+    <button type="button" data-f="alta">Só divergência alta</button>
+  </div>
+  <span class="spacer"></span>
+  <label class="small" style="margin:0;font-weight:500"><input type="checkbox" id="ocultar-nomes"> Ocultar nomes (para projeção)</label>
+</div>
+
+<form method="post" id="form-consolidacao">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+  {% macro bloco(item, eh_criterio) %}
+    {% set cod = item['codigo'] %}{% set a = analise[cod] %}{% set d = decisoes.get(cod, {}) %}
+    {% set escolhido = d.get('valor') if d.get('valor') is not none else a['sugestao'] %}
+    <section class="card crit-card s-{{ a['status'] }}" data-status="{{ a['status'] }}" id="c-{{ cod }}">
+      <div class="row">
+        <div class="code">{{ cod }} · {{ item['titulo'] }}{% if item.get('peso', 1) > 1 %} (peso {{ item['peso'] }}){% endif %}</div>
+        <span class="spacer"></span>
+        <span class="badge b-{{ a['status'] }}">{{ rules.ROTULO_STATUS[a['status']] }}</span>
+        {% if a['n'] %}<span class="small muted">{{ a['concordancia'] }}% na alternativa mais votada</span>{% endif %}
+      </div>
+      <h3 style="font-size:1rem;margin:6px 0 4px;font-weight:600">{{ item['pergunta'] }}</h3>
+      <div class="dist" role="radiogroup" aria-label="Decisão do grupo para {{ cod }}">
+        {% if eh_criterio %}
+          {% for opc in item['opcoes'] %}{% set k = loop.index %}{% set qtd = a['dist'][k] %}
+            <label class="opt">
+              <input type="radio" name="valor_{{ cod }}" value="{{ k }}" {{ 'checked' if escolhido == k }}>
+              <span><b>{{ 'abc'[loop.index0] }})</b> <span class="small">{{ opc }}</span>{% if a['sugestao'] == k %}<span class="sug">sugerida</span>{% endif %}
+                <span class="who nome">{% for ind in individuais if ind['respostas'].get(cod) == k %}{{ ind['nome'] }}{{ ', ' if not loop.last }}{% endfor %}</span></span>
+              <span><span class="bar"><span style="width:{{ (100*qtd/a['n'])|round if a['n'] else 0 }}%"></span></span><span class="count">{{ qtd }} {{ 'voto' if qtd == 1 else 'votos' }}</span></span>
+            </label>
+          {% endfor %}
+        {% else %}
+          {% for chave, rotulo in rules.RESPOSTAS_T.items() %}{% set qtd = a['dist'][chave] %}
+            <label class="opt">
+              <input type="radio" name="valor_{{ cod }}" value="{{ chave }}" {{ 'checked' if escolhido == chave }}>
+              <span><b>{{ rotulo }}</b>{% if a['sugestao'] == chave %}<span class="sug">sugerida</span>{% endif %}
+                <span class="who nome">{% for ind in individuais if ind['respostas'].get(cod) == chave %}{{ ind['nome'] }}{{ ', ' if not loop.last }}{% endfor %}</span></span>
+              <span><span class="bar"><span style="width:{{ (100*qtd/a['n'])|round if a['n'] else 0 }}%"></span></span><span class="count">{{ qtd }} {{ 'voto' if qtd == 1 else 'votos' }}</span></span>
+            </label>
+          {% endfor %}
+        {% endif %}
+      </div>
+      {% set coments = [] %}{% for ind in individuais %}{% if ind['comentarios'].get(cod) %}{% set _ = coments.append(ind) %}{% endif %}{% endfor %}
+      {% if coments %}
+      <div class="comments"><b class="small">Comentários dos participantes</b>
+        {% for ind in coments %}<p><span class="nome"><b>{{ ind['nome'] }}:</b></span> {{ ind['comentarios'][cod] }}</p>{% endfor %}
+      </div>
+      {% endif %}
+      <label for="just_{{ cod }}" class="small">Justificativa da decisão do grupo <span class="muted">(opcional)</span></label>
+      <textarea id="just_{{ cod }}" name="just_{{ cod }}" style="min-height:56px" data-sug="{{ a['sugestao'] }}">{{ d.get('justificativa', '') }}</textarea>
+    </section>
+  {% endmacro %}
+
+  <h2 class="section-title">Critérios de diagnóstico (C1–C10)</h2>
+  {% for c in rules.CRITERIOS %}{{ bloco(c, true) }}{% endfor %}
+  <h2 class="section-title">Condições especiais (T1–T8)</h2>
+  {% for t in rules.CONDICOES %}{{ bloco(t, false) }}{% endfor %}
+
+  <div class="sticky-bar"><div class="row">
+    <span class="small muted" id="estado">{% if of['consolidacao_atualizada_em'] %}Decisões salvas em {{ of['consolidacao_atualizada_em']|datahora }}{% else %}Decisões ainda não salvas{% endif %}</span>
+    <span class="spacer"></span>
+    <button name="acao" value="salvar" class="sec">Salvar decisões</button>
+    <button name="acao" value="finalizar">Finalizar e gerar plano</button>
+  </div></div>
+</form>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.querySelectorAll('.filters button').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.filters button').forEach(x => x.classList.toggle('on', x === b));
+  const f = b.dataset.f;
+  document.querySelectorAll('.crit-card').forEach(s => {
+    const st = s.dataset.status;
+    s.hidden = (f === 'div' && st === 'consenso') || (f === 'alta' && st !== 'alta');
+  });
+}));
+const ocultar = document.getElementById('ocultar-nomes');
+ocultar?.addEventListener('change', () => {
+  document.querySelectorAll('.nome').forEach((el, i) => el.style.visibility = ocultar.checked ? 'hidden' : '');
+});
+const form = document.getElementById('form-consolidacao');
+form?.addEventListener('change', () => { document.getElementById('estado').textContent = 'Alterações não salvas'; });
+</script>
+{% endblock %}

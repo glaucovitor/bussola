@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Oficinas{% endblock %}
+
+{% block scripts %}
+<script>
+document.querySelectorAll('.form-remover').forEach(f => f.addEventListener('submit', e => {
+  const n = Number(f.dataset.respostas || 0);
+  const aviso = 'Remover a iniciativa "' + f.dataset.titulo + '"?\n\n'
+    + (n ? 'Serão apagados ' + n + (n === 1 ? ' participante' : ' participantes') + ' com suas respostas, a consolidação e o plano.\n\n' : '')
+    + 'Esta ação não pode ser desfeita.';
+  if (!confirm(aviso)) e.preventDefault();
+}));
+</script>
+{% endblock %}
+{% block content %}
+<div class="hero">
+  <h1>Oficinas de diagnóstico</h1>
+  <p>Cada oficina reúne as respostas individuais dos participantes, a consolidação do grupo e o plano metodológico gerado.</p>
+</div>
+
+<div class="card">
+  <h2>Nova oficina</h2>
+  <form method="post" action="{{ url_for('nova_oficina') }}" class="row">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="text" name="titulo" placeholder="Nome da iniciativa a ser diagnosticada" required maxlength="180" style="flex:1;min-width:240px" aria-label="Nome da iniciativa">
+    <button>Criar oficina</button>
+  </form>
+</div>
+
+<div class="card">
+  <h2>Minhas oficinas</h2>
+  {% if oficinas %}
+  <div class="table-scroll"><table>
+    <thead><tr><th>Iniciativa</th><th>Código</th><th>Respostas</th><th>Situação</th><th>Criada em</th><th></th></tr></thead>
+    <tbody>
+    {% for o in oficinas %}
+      <tr>
+        <td><a href="{{ url_for('oficina', oficina_id=o['id']) }}"><b>{{ o['titulo'] }}</b></a></td>
+        <td><code>{{ o['codigo'] }}</code></td>
+        <td>{{ o['enviados'] or 0 }} de {{ o['total'] }}</td>
+        <td>
+          {% if o['finalizada_em'] %}<span class="badge b-consenso">Plano gerado</span>
+          {% elif o['status'] == 'aberta' %}<span class="badge b-aberta">Recebendo respostas</span>
+          {% else %}<span class="badge b-encerrada">Respostas encerradas</span>{% endif %}
+        </td>
+        <td class="small muted">{{ o['criado_em']|datahora }}</td>
+        <td>
+          <form method="post" action="{{ url_for('excluir_oficina', oficina_id=o['id']) }}" class="form-remover"
+                data-titulo="{{ o['titulo'] }}" data-respostas="{{ o['total'] }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="confirmacao" value="{{ o['codigo'] }}">
+            <input type="hidden" name="voltar" value="painel">
+            <button class="ghost sm" style="color:var(--bad)">Remover</button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}
+  <p class="muted">Nenhuma oficina ainda. Crie a primeira acima.</p>
+  {% endif %}
+</div>
+{% endblock %}

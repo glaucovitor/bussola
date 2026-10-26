@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% set area_participante = true %}
+{% block title %}{{ titulo }}{% endblock %}
+{% block wrapclass %}narrow{% endblock %}
+{% block content %}
+<div class="card" style="text-align:center;margin-top:40px">
+  <h1>{{ titulo }}</h1>
+  <p class="muted">{{ mensagem }}</p>
+  <a class="btn sec" href="{{ url_for('entrar_por_codigo') }}">Informar código da oficina</a>
+</div>
+{% endblock %}

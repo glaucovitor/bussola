@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Contextualização · {{ of['titulo'] }}{% endblock %}
+{% block content %}
+<p class="small"><a href="{{ url_for('oficina', oficina_id=of['id']) }}">← Voltar à oficina</a></p>
+<div class="hero">
+  <h1>Identificação e contextualização</h1>
+  <p>Preenchimento em grupo. Projete esta tela e registre o que o grupo acordar; as alterações são salvas automaticamente.</p>
+</div>
+
+<form method="post" id="form-contexto">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+  <section class="card"><h2>Identificação da demanda</h2>
+    <div class="grid2">
+    {% for chave, rotulo, tipo, obrig in rules.CAMPOS_IDENTIFICACAO %}
+      <div class="{{ 'full' if chave == 'nome_iniciativa' }}">
+        <label for="{{ chave }}">{{ rotulo }}{{ ' *' if obrig }}</label>
+        <input type="{{ tipo }}" id="{{ chave }}" name="{{ chave }}" value="{{ ctx.get(chave, '') }}" {{ 'required' if obrig }} maxlength="{{ 180 if chave=='nome_iniciativa' else 400 }}">
+      </div>
+    {% endfor %}
+    </div>
+  </section>
+
+  <section class="card"><h2>Contextualização da demanda</h2>
+    {% for chave, rotulo, dica in rules.CAMPOS_CONTEXTO %}
+      <label for="{{ chave }}">{{ rotulo }}</label>
+      <textarea id="{{ chave }}" name="{{ chave }}" placeholder="{{ dica }}">{{ ctx.get(chave, '') }}</textarea>
+    {% endfor %}
+
+    <fieldset style="border:1px solid var(--line);border-radius:9px;padding:14px;margin-top:16px">
+      <legend><b>Públicos afetados</b></legend>
+      <div class="tchoices">
+      {% for pub in rules.PUBLICOS %}
+        <label class="choice"><input type="checkbox" name="publicos_afetados" value="{{ pub }}" {{ 'checked' if pub in (ctx.get('publicos_afetados') or []) }}>{{ pub }}</label>
+      {% endfor %}
+      </div>
+      <label for="publicos_outros">Se marcou Outros, especifique</label>
+      <input type="text" id="publicos_outros" name="publicos_outros" value="{{ ctx.get('publicos_outros', '') }}" placeholder="Separe por ponto e vírgula">
+    </fieldset>
+
+    {% for chave, rotulo in rules.CAMPOS_ENVOLVIDOS %}
+      <label for="{{ chave }}">{{ rotulo }}</label>
+      <textarea id="{{ chave }}" name="{{ chave }}" rows="2" style="min-height:60px" placeholder="Um item por linha">{{ ctx.get(chave, '') }}</textarea>
+    {% endfor %}
+  </section>
+
+  <div class="sticky-bar"><div class="row">
+    <span class="save-state" id="estado">{% if of['contexto_atualizado_em'] %}Salvo em {{ of['contexto_atualizado_em']|datahora }}{% else %}Ainda não salvo{% endif %}</span>
+    <span class="spacer"></span>
+    <button>Salvar e voltar</button>
+  </div></div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const form = document.getElementById('form-contexto'), estado = document.getElementById('estado');
+let timer = null, salvando = false, pendente = false;
+async function autosave(){
+  if(salvando){ pendente = true; return; }
+  salvando = true; estado.textContent = 'Salvando…';
+  try{ await postForm(form.action || location.href, new FormData(form)); estado.textContent = 'Salvo às ' + horaAgora(); }
+  catch(e){ estado.textContent = 'Não foi possível salvar: ' + e.message; }
+  salvando = false; if(pendente){ pendente = false; autosave(); }
+}
+form.addEventListener('input', ()=>{ estado.textContent = 'Alterações não salvas'; clearTimeout(timer); timer = setTimeout(autosave, 1200); });
+form.addEventListener('change', ()=>{ clearTimeout(timer); timer = setTimeout(autosave, 400); });
+</script>
+{% endblock %}

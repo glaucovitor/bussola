@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% set area_participante = true %}
+{% block title %}Questionário · {{ of['titulo'] }}{% endblock %}
+{% block wrapclass %}narrow{% endblock %}
+{% block content %}
+{% set fechada = of['status'] != 'aberta' %}
+<div class="hero">
+  <div class="small" style="color:#dbe7f5">Oficina {{ of['codigo'] }} · {{ p['nome'] }}</div>
+  <h1>{{ ctx.get('nome_iniciativa') or of['titulo'] }}</h1>
+  <p>Responda individualmente, de acordo com a sua percepção. Não há resposta certa: as diferenças entre participantes serão discutidas pelo grupo.</p>
+</div>
+
+{% if ctx.get('problema_resolver') or ctx.get('situacao_atual') %}
+<details class="card">
+  <summary><b>Contexto acordado pelo grupo</b></summary>
+  {% for chave, rotulo, _ in rules.CAMPOS_CONTEXTO %}{% if ctx.get(chave) %}
+    <h3 style="margin-top:14px">{{ rotulo }}</h3><p style="white-space:pre-line;margin:0">{{ ctx.get(chave) }}</p>
+  {% endif %}{% endfor %}
+</details>
+{% endif %}
+
+<div class="flash ok" id="aviso-enviado" {{ '' if p['enviado_em'] else 'hidden' }}>Respostas enviadas. Você pode alterá-las enquanto o condutor mantiver a oficina aberta; as alterações são salvas automaticamente.</div>
+{% if fechada %}<div class="flash erro">O condutor encerrou o recebimento de respostas. Suas respostas estão disponíveis apenas para consulta.</div>{% endif %}
+
+<form id="questionario" novalidate>
+  <fieldset {{ 'disabled' if fechada }} style="border:0;padding:0;margin:0">
+  <h2 class="section-title">Critérios de diagnóstico (C1–C10)</h2>
+  <p class="muted small">Selecione uma alternativa para cada critério.</p>
+  {% for c in rules.CRITERIOS %}
+  <section class="card item" data-codigo="{{ c['codigo'] }}" id="item-{{ c['codigo'] }}">
+    <div class="code">{{ c['codigo'] }} · {{ c['titulo'] }}</div>
+    <h3 style="font-size:1.05rem;margin:6px 0 10px">{{ c['pergunta'] }}</h3>
+    {% for opc in c['opcoes'] %}
+      <label class="choice"><input type="radio" name="{{ c['codigo'] }}" value="{{ loop.index }}" {{ 'checked' if respostas.get(c['codigo']) == loop.index }}>
+        <span><b>{{ 'abc'[loop.index0] }})</b> {{ opc }}</span></label>
+    {% endfor %}
+    <details class="coment" {{ 'open' if comentarios.get(c['codigo']) }}>
+      <summary>Comentário (opcional)</summary>
+      <textarea name="com_{{ c['codigo'] }}" maxlength="1000" aria-label="Comentário sobre {{ c['codigo'] }}">{{ comentarios.get(c['codigo'], '') }}</textarea>
+    </details>
+  </section>
+  {% endfor %}
+
+  <h2 class="section-title">Condições especiais (T1–T8)</h2>
+  <p class="muted small">“Não sei” não significa ausência de risco: indica que o tema precisa ser avaliado.</p>
+  {% for t in rules.CONDICOES %}
+  <section class="card item" data-codigo="{{ t['codigo'] }}" id="item-{{ t['codigo'] }}">
+    <div class="code">{{ t['codigo'] }} · {{ t['titulo'] }}</div>
+    <h3 style="font-size:1.05rem;margin:6px 0 10px">{{ t['pergunta'] }}</h3>
+    <div class="tchoices">
+    {% for chave, rotulo in rules.RESPOSTAS_T.items() %}
+      <label class="choice"><input type="radio" name="{{ t['codigo'] }}" value="{{ chave }}" {{ 'checked' if respostas.get(t['codigo']) == chave }}><span>{{ rotulo }}</span></label>
+    {% endfor %}
+    </div>
+    <details class="coment" {{ 'open' if comentarios.get(t['codigo']) }}>
+      <summary>Comentário (opcional)</summary>
+      <textarea name="com_{{ t['codigo'] }}" maxlength="1000" aria-label="Comentário sobre {{ t['codigo'] }}">{{ comentarios.get(t['codigo'], '') }}</textarea>
+    </details>
+  </section>
+  {% endfor %}
+  </fieldset>
+
+  <div class="sticky-bar"><div class="row">
+    <div class="progress" aria-hidden="true"><span id="barra"></span></div>
+    <span class="small" id="contagem"></span>
+    <span class="save-state" id="estado">{% if p['atualizado_em'] %}Salvo{% endif %}</span>
+    {% if not fechada %}<button type="button" id="btn-enviar">{{ 'Atualizar envio' if p['enviado_em'] else 'Enviar respostas' }}</button>{% endif %}
+  </div></div>
+</form>
+
+<form method="post" action="{{ url_for('sair_participante', codigo=of['codigo']) }}" class="no-print" style="margin-top:16px">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <button class="ghost sm">Não sou {{ p['nome'] }} — entrar como outra pessoa</button>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const TOTAL = {{ total_itens }};
+const URL_SALVAR = "{{ url_for('salvar_participante', codigo=of['codigo']) }}";
+const form = document.getElementById('questionario'), estado = document.getElementById('estado');
+const codigos = [...document.querySelectorAll('.item')].map(s => s.dataset.codigo);
+let timer = null, salvando = false, pendente = false, falhou = false;
+
+function respondidos(){ return codigos.filter(c => form.querySelector(`input[name="${c}"]:checked`)); }
+function atualizarProgresso(){
+  const n = respondidos().length;
+  document.getElementById('barra').style.width = (100*n/TOTAL) + '%';
+  document.getElementById('contagem').textContent = n + '/' + TOTAL;
+  codigos.forEach(c => { if(form.querySelector(`input[name="${c}"]:checked`)) document.getElementById('item-'+c).classList.remove('faltando'); });
+}
+async function salvar(acao){
+  if(salvando){ pendente = true; return; }
+  salvando = true; estado.textContent = 'Salvando…';
+  const fd = new FormData(form); if(acao) fd.append('acao', acao);
+  try{
+    const r = await postForm(URL_SALVAR, fd);
+    estado.textContent = 'Salvo às ' + horaAgora(); falhou = false;
+    document.getElementById('aviso-enviado').hidden = !r.enviado;
+    const btn = document.getElementById('btn-enviar'); if(btn) btn.textContent = r.enviado ? 'Atualizar envio' : 'Enviar respostas';
+    if(acao === 'enviar'){ window.scrollTo({top:0, behavior:'smooth'}); }
+  }catch(e){
+    falhou = true; estado.textContent = e.message;
+    if(e.dados && e.dados.faltando){
+      e.dados.faltando.forEach(c => document.getElementById('item-'+c)?.classList.add('faltando'));
+      document.getElementById('item-'+e.dados.faltando[0])?.scrollIntoView({behavior:'smooth', block:'center'});
+      estado.textContent = 'Faltam ' + e.dados.faltando.length + ' itens';
+    }
+  }
+  salvando = false;
+  if(pendente){ pendente = false; salvar(); }
+}
+form.addEventListener('change', () => { atualizarProgresso(); clearTimeout(timer); timer = setTimeout(() => salvar(), 300); });
+form.addEventListener('input', e => { if(e.target.tagName === 'TEXTAREA'){ estado.textContent = 'Alterações não salvas'; clearTimeout(timer); timer = setTimeout(() => salvar(), 1500); } });
+document.getElementById('btn-enviar')?.addEventListener('click', () => { clearTimeout(timer); salvar('enviar'); });
+setInterval(() => { if(falhou && !salvando) salvar(); }, 8000);  // nova tentativa se a rede falhar
+window.addEventListener('beforeunload', e => { if(estado.textContent.startsWith('Alterações') || salvando){ e.preventDefault(); } });
+atualizarProgresso();
+</script>
+{% endblock %}

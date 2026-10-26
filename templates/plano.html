@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+{% block title %}Plano metodológico · {{ of['titulo'] }}{% endblock %}
+{% block content %}
+<div class="row no-print" style="margin-bottom:12px">
+  <a class="small" href="{{ url_for('oficina', oficina_id=of['id']) }}">← Voltar à oficina</a>
+  <span class="spacer"></span>
+  <a class="btn sm sec" href="{{ url_for('consolidacao', oficina_id=of['id']) }}">Revisar consolidação</a>
+  <a class="btn sm sec" href="{{ url_for('plano_json', oficina_id=of['id']) }}">Baixar dados (JSON)</a>
+  <button class="sm" type="button" onclick="window.print()">Imprimir / salvar PDF</button>
+</div>
+
+{% if not plano %}
+<div class="card">
+  <h2>O plano ainda não pode ser gerado</h2>
+  <p class="muted">Faltam respostas ou decisões para: {{ faltando|join(', ') }}. Aguarde o envio dos participantes ou defina esses itens na consolidação.</p>
+  <a class="btn" href="{{ url_for('consolidacao', oficina_id=of['id']) }}">Ir para a consolidação</a>
+</div>
+{% else %}
+{% macro pontos(nivel) %}<span class="pm-dots" aria-label="Intensidade {{ nivel }}">{% set n = {'Alta': 3, 'Média': 2, 'Baixa': 1}.get(nivel, 0) %}{% for i in range(3) %}<i class="{{ 'on' if i < n }}"></i>{% endfor %}</span>{% endmacro %}
+
+<article class="pm">
+  {% if not of['finalizada_em'] %}
+  <div class="prelim">Versão preliminar: a consolidação ainda não foi finalizada.</div>
+  {% endif %}
+
+  <!-- Cabeçalho -->
+  <header class="pm-head">
+    <div class="pm-kicker">Plano metodológico · Oficina {{ of['codigo'] }}</div>
+    <h1>{{ ctx.get('nome_iniciativa') or of['titulo'] }}</h1>
+    <div class="pm-meta">
+      {% if ctx.get('unidade_demandante') %}<span>{{ ctx.get('unidade_demandante') }}</span>{% endif %}
+      {% if ctx.get('data_aplicacao') %}<span>{{ ctx.get('data_aplicacao')|data_br }}</span>{% endif %}
+      <span>{{ enviados|length }} participantes</span>
+      {% if ctx.get('facilitador_sessao') %}<span>Facilitação: {{ ctx.get('facilitador_sessao') }}</span>{% endif %}
+    </div>
+    {% if ctx.get('problema_resolver') %}<p class="pm-problema"><b>Problema:</b> {{ ctx.get('problema_resolver') }}</p>{% endif %}
+  </header>
+
+  <!-- Percurso visual -->
+  <section class="pm-sec">
+    <h2>Percurso</h2>
+    <ol class="pm-track">
+      {% for f in plano['percurso'] %}
+      <li class="{{ 'on' if f['ativa'] else 'off' }} {{ 'entry' if f['entrada'] }}">
+        <span class="pm-num">{{ loop.index }}</span>
+        <span class="pm-name">{{ f['fase'] }}</span>
+        {% if f['ativa'] %}
+          {{ pontos(f['intensidade']) }}
+          <span class="pm-tag">{% if f['na_oficina'] %}Feito na oficina{% elif f['inicio'] %}Início{% elif f['entrada'] %}Ponto de entrada{% elif f['curta'] == 'Handover' and plano['paralelo'] %}Em paralelo{% else %}&nbsp;{% endif %}</span>
+        {% else %}
+          <span class="pm-tag">Dispensada</span>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ol>
+    <p class="pm-lead"><b>Ponto de entrada: {{ plano['ponto_entrada'] }}.</b> {{ plano['justificativa_entrada'] }}</p>
+    <div class="pm-levels">
+      <div class="pm-levels-intro small">Toda etapa ativa é feita. A intensidade, definida pelos critérios do diagnóstico, indica quanto esforço e validação ela exige.</div>
+      {% for nome, d in rules.DEFINICAO_INTENSIDADE.items() %}
+      <div class="pm-level">
+        <div class="pm-level-head">{{ pontos(nome) }} <b>{{ nome }} intensidade</b></div>
+        <ul>
+          <li>{{ d['profundidade'] }}</li>
+          <li>{{ d['participantes'] }}</li>
+          <li>{{ d['ciclos'] }}</li>
+          <li>Validação: {{ d['validacao']|lower }}</li>
+        </ul>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <!-- Etapas: entrada → técnicas sugeridas → saída -->
+  <section class="pm-sec">
+    <h2>Etapas</h2>
+    {% for f in plano['percurso'] if f['ativa'] %}
+    <div class="pm-stage">
+      <div class="pm-stage-head">
+        <span class="pm-num">{{ (plano['percurso'].index(f)) + 1 }}</span>
+        <h3>{{ f['fase'] }}</h3>
+        {{ pontos(f['intensidade']) }}<span class="small">{{ f['intensidade'] }} intensidade</span>
+        {% if f['entrada'] and not f['inicio'] %}<span class="pm-chip-tag">Ponto de entrada</span>{% endif %}
+        {% if f['na_oficina'] %}<span class="pm-chip-tag">Realizado na oficina</span>{% endif %}
+        {% if f['curta'] == 'Handover' and plano['paralelo'] %}<span class="pm-chip-tag">Em paralelo à Prototipação</span>{% endif %}
+      </div>
+      {% set ti = f['texto_intensidade'] %}
+      <div class="pm-why">
+        <p><b>{{ ti['porque'] }}</b></p>
+        <p>{{ ti['orientacao'] }}</p>
+        {% if ti['focos'] %}
+        <div class="pm-focus"><span class="pm-io-label">Foco desta etapa</span>
+          <ul>{% for foco in ti['focos'] %}<li>{{ foco }}</li>{% endfor %}</ul></div>
+        {% endif %}
+      </div>
+      <div class="pm-flow">
+        <div class="pm-io">
+          <div class="pm-io-label">Entrada</div>
+          <ul>{% for e in f['entrada_itens'] %}<li>{{ e }}</li>{% endfor %}</ul>
+        </div>
+        <div class="pm-arrow" aria-hidden="true">→</div>
+        <div class="pm-tech">
+          <div class="pm-io-label">Técnicas sugeridas</div>
+          {% set visiveis = f['tecnicas'][:5] %}{% set extras = f['tecnicas'][5:] %}
+          <div class="pm-chips">
+            {% for t in visiveis %}<span class="pm-chip" title="{{ ('Sugerida pelo diagnóstico: ' ~ (t['origens']|map('titulo_criterio')|join(', '))) if t['origens'] else 'Prática de base da etapa' }}">{{ t['nome'] }}</span>{% endfor %}
+          </div>
+          {% if extras %}
+          <details class="pm-more"><summary>+{{ extras|length }} sugest{{ 'ão' if extras|length == 1 else 'ões' }}</summary>
+            <div class="pm-chips">{% for t in extras %}<span class="pm-chip">{{ t['nome'] }}</span>{% endfor %}</div>
+          </details>
+          {% endif %}
+        </div>
+        <div class="pm-arrow" aria-hidden="true">→</div>
+        <div class="pm-io out">
+          <div class="pm-io-label">Saída</div>
+          <ul>{% for s in f['saida_itens'] %}<li>{{ s }}</li>{% endfor %}</ul>
+          <div class="pm-gate"><b>Avança quando:</b> {{ f['pronta_quando'] }}</div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+    <p class="small muted">As técnicas são sugestões, ordenadas pela relevância para o diagnóstico. A equipe escolhe as que fazem sentido para o contexto.</p>
+  </section>
+
+  <!-- Pontos de atenção -->
+  {% if plano['atencao'] %}
+  <section class="pm-sec">
+    <h2>Pontos de atenção</h2>
+    <ul class="pm-alerts">
+      {% for a in plano['atencao'] %}
+      <li><div><b>{{ a['titulo'] }}</b></div>
+        {% if a['detalhe'] %}<div class="small muted">{{ a['detalhe'] }}</div>{% endif %}
+        <div class="small">{{ a['acao'] }}</div>
+        {% if a['etapa'] %}<span class="pm-chip-tag">{{ a['etapa'] }}</span>{% endif %}</li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
+  <!-- Diagnóstico: alternativa escolhida pelo grupo em cada critério -->
+  <section class="pm-sec">
+    <h2>Diagnóstico do grupo</h2>
+    <p class="small muted" style="margin-top:-4px">Alternativa definida pelo grupo em cada critério, após a consolidação.</p>
+    <div class="pm-diag">
+      {% for c in plano['perfil'] %}
+      <div class="pm-diag-item">
+        <div class="pm-diag-head">
+          <span class="pm-diag-name">{{ c['titulo'] }}</span>
+          {% if c['peso_aplicado'] %}<span class="tiny muted">peso dobrado</span>{% endif %}
+          {% if c['status'] == 'alta' %}<span class="tiny" style="color:var(--bad)">grupo dividido</span>{% endif %}
+          <span class="pm-level-pill lv{{ c['nivel'] }}">{{ c['rotulo'] }}</span>
+        </div>
+        <p class="pm-diag-text">{{ c['texto'] }}</p>
+      </div>
+      {% endfor %}
+    </div>
+    <p class="small" style="margin-top:12px"><b>Envolvimento dos atores:</b> {{ plano['envolvimento'] }}
+      {% if plano['atores'] %}<span class="muted">({{ plano['atores']|map(attribute='nome')|join(', ') }})</span>{% endif %}</p>
+  </section>
+
+  <!-- Decisões e aprovação -->
+  <section class="pm-sec pm-annex">
+    <h2>Decisões do grupo e aprovação</h2>
+    {% set divergentes = [] %}{% for cod, r in registro.items() %}{% if r['status'] in ('moderada', 'alta') or r['justificativa'] %}{% set _ = divergentes.append((cod, r)) %}{% endif %}{% endfor %}
+    {% if divergentes %}
+    <table>
+      <thead><tr><th>Item</th><th>Divergência</th><th>Decisão</th><th>Justificativa</th></tr></thead>
+      <tbody>
+      {% for cod, r in divergentes %}
+        <tr><td><b>{{ rules.CRITERIOS_POR_CODIGO[cod]['titulo'] if cod in rules.CRITERIOS_POR_CODIGO else rules.CONDICOES_POR_CODIGO[cod]['titulo'] }}</b></td><td class="small">{{ rules.ROTULO_STATUS[r['status']] }}</td>
+          <td class="small">{% if cod in rules.CRITERIOS_POR_CODIGO %}{{ rules.ROTULOS[cod][r['valor'] - 1] }}{% else %}{{ rules.RESPOSTAS_T[r['valor']] }}{% endif %}</td>
+          <td class="small">{{ r['justificativa'] or '–' }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="small muted">O grupo chegou a consenso em todos os itens.</p>
+    {% endif %}
+    <p class="small muted">Participantes: {% for e in enviados %}{{ e['nome'] }}{{ ', ' if not loop.last }}{% endfor %}.</p>
+    <table class="sign">
+      <thead><tr><th>Aprovação</th><th>Nome</th><th>Assinatura e data</th></tr></thead>
+      <tbody>
+        <tr><td>Patrocinador / gestor(a)</td><td>{{ ctx.get('gestor_responsavel') or '' }}</td><td></td></tr>
+        <tr><td>Facilitador(a)</td><td>{{ ctx.get('facilitador_sessao') or '' }}</td><td></td></tr>
+        <tr><td>Responsável técnico</td><td>{{ ctx.get('responsavel_tecnico') or '' }}</td><td></td></tr>
+      </tbody>
+    </table>
+  </section>
+</article>
+{% endif %}
+{% endblock %}

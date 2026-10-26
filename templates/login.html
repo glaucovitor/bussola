@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Entrar{% endblock %}
+{% block wrapclass %}narrow{% endblock %}
+{% block content %}
+<div class="card" style="max-width:420px;margin:40px auto">
+  <h1>Entrar</h1>
+  <p class="muted small">Acesso dos administradores. Participantes entram pelo link ou código da oficina.</p>
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label for="usuario">Usuário</label><input type="text" id="usuario" name="usuario" required autofocus autocomplete="username">
+    <label for="senha">Senha</label><input type="password" id="senha" name="senha" required autocomplete="current-password">
+    <div class="row" style="margin-top:18px"><button>Entrar</button><span class="spacer"></span><a class="small" href="{{ url_for('entrar_por_codigo') }}">Sou participante</a></div>
+  </form>
+</div>
+{% endblock %}

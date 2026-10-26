@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% set area_participante = true %}
+{% block title %}{{ of['titulo'] }}{% endblock %}
+{% block wrapclass %}narrow{% endblock %}
+{% block content %}
+<div class="hero">
+  <div class="small" style="color:#dbe7f5">Oficina {{ of['codigo'] }}</div>
+  <h1>{{ of['titulo'] }}</h1>
+  <p>Diagnóstico preliminar da demanda · Design de Serviços</p>
+</div>
+{% if of['status'] != 'aberta' %}
+  <div class="card"><h2>Respostas encerradas</h2><p class="muted">O condutor já encerrou o recebimento de respostas desta oficina.</p></div>
+{% else %}
+<div class="card">
+  <h2>Identifique-se</h2>
+  <p class="muted small">Suas respostas são individuais. O condutor verá seu nome ao comparar as respostas do grupo.</p>
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label for="nome">Nome *</label><input type="text" id="nome" name="nome" required maxlength="120" autofocus autocomplete="name">
+    <div class="grid2">
+      <div><label for="papel">Papel na iniciativa</label><input type="text" id="papel" name="papel" maxlength="120" placeholder="Ex.: gestor, analista, atendente"></div>
+      <div><label for="unidade">Unidade</label><input type="text" id="unidade" name="unidade" maxlength="120"></div>
+    </div>
+    <div style="margin-top:18px"><button>Começar</button></div>
+  </form>
+</div>
+{% endif %}
+{% endblock %}

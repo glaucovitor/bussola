@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% block title %}{{ of['titulo'] }}{% endblock %}
+{% block content %}
+<div class="hero">
+  <div class="row">
+    <div style="flex:1;min-width:240px">
+      <div class="small" style="color:#dbe7f5">Oficina {{ of['codigo'] }}</div>
+      <h1>{{ of['titulo'] }}</h1>
+      <p>{{ contexto.get('unidade_demandante') or 'Unidade demandante não informada' }}{% if contexto.get('data_aplicacao') %} · {{ contexto.get('data_aplicacao')|data_br }}{% endif %}</p>
+    </div>
+    <span class="badge {{ 'b-aberta' if of['status']=='aberta' else 'b-encerrada' }}" id="badge-status">{{ 'Recebendo respostas' if of['status']=='aberta' else 'Respostas encerradas' }}</span>
+  </div>
+</div>
+
+<div class="grid-panel">
+  <div class="card">
+    <h2>Etapas da oficina</h2>
+    <ol class="steps">
+      {% set ctx_ok = contexto.get('nome_iniciativa') and contexto.get('problema_resolver') %}
+      <li class="{{ 'done' if ctx_ok }}">
+        <div class="grow"><b>Identificação e contextualização</b>
+          <div class="small muted">Preenchidas em grupo, com a tela projetada.{% if of['contexto_atualizado_em'] %} Atualizado em {{ of['contexto_atualizado_em']|datahora }}.{% endif %}</div></div>
+        <a class="btn sm {{ 'sec' if ctx_ok }}" href="{{ url_for('contexto', oficina_id=of['id']) }}">{{ 'Revisar' if ctx_ok else 'Preencher' }}</a>
+      </li>
+      <li id="step-respostas">
+        <div class="grow"><b>Respostas individuais</b>
+          <div class="small muted"><span id="resumo-respostas">Carregando…</span></div></div>
+        <form method="post" action="{{ url_for('mudar_estado', oficina_id=of['id']) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          {% if of['status'] == 'aberta' %}
+            <input type="hidden" name="status" value="encerrada"><button class="sm sec">Encerrar respostas</button>
+          {% else %}
+            <input type="hidden" name="status" value="aberta"><button class="sm sec">Reabrir respostas</button>
+          {% endif %}
+        </form>
+      </li>
+      <li class="{{ 'done' if of['consolidacao_atualizada_em'] }}">
+        <div class="grow"><b>Consolidação das divergências</b>
+          <div class="small muted">Compare as respostas, discuta as divergências e registre a decisão do grupo.</div>
+          <div class="small" id="aviso-novas" hidden style="color:var(--bad)">Há respostas enviadas ou alteradas depois da última consolidação.</div></div>
+        <a class="btn sm" href="{{ url_for('consolidacao', oficina_id=of['id']) }}">Consolidar</a>
+      </li>
+      <li class="{{ 'done' if of['finalizada_em'] }}">
+        <div class="grow"><b>Plano metodológico</b>
+          <div class="small muted">{% if of['finalizada_em'] %}Finalizado em {{ of['finalizada_em']|datahora }}.{% else %}Gerado automaticamente a partir da consolidação.{% endif %}</div></div>
+        <a class="btn sm {{ '' if of['finalizada_em'] else 'sec' }}" href="{{ url_for('plano', oficina_id=of['id']) }}">{{ 'Abrir plano' if of['finalizada_em'] else 'Prévia' }}</a>
+      </li>
+    </ol>
+  </div>
+
+  <div class="card qrbox">
+    <h2>Acesso dos participantes</h2>
+    <img src="{{ url_for('qr', oficina_id=of['id']) }}" alt="QR code de acesso à oficina" onerror="this.remove()">
+    <div class="code-big" aria-label="Código da oficina">{{ of['codigo'] }}</div>
+    <div class="linkbox" style="margin-top:10px">
+      <input type="text" readonly value="{{ link }}" id="link" aria-label="Link de acesso">
+      <button class="sm sec" type="button" onclick="copiar()">Copiar</button>
+    </div>
+    <div style="margin-top:12px"><button class="sm" type="button" onclick="projetar(true)">Projetar acesso em tela cheia</button></div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="row"><h2 style="margin:0">Participantes</h2><span class="spacer"></span>
+    <a class="btn sm sec" href="{{ url_for('respostas_csv', oficina_id=of['id']) }}">Baixar respostas (CSV)</a></div>
+  <div class="table-scroll"><table>
+    <thead><tr><th>Nome</th><th>Papel / unidade</th><th>Progresso</th><th>Situação</th><th></th></tr></thead>
+    <tbody id="lista-participantes"><tr><td colspan="5" class="muted">Carregando…</td></tr></tbody>
+  </table></div>
+  <p class="tiny muted">A lista atualiza sozinha a cada poucos segundos.</p>
+</div>
+
+<div class="card no-print row">
+  <div style="flex:1"><b>Remover iniciativa</b>
+    <div class="small muted">Apaga a oficina, os participantes e suas respostas, a consolidação e o plano. Não pode ser desfeito.</div></div>
+  <form method="post" action="{{ url_for('excluir_oficina', oficina_id=of['id']) }}" id="form-remover" data-titulo="{{ of['titulo'] }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="confirmacao" value="{{ of['codigo'] }}">
+    <button class="danger sm">Remover iniciativa</button>
+  </form>
+</div>
+
+<div id="projecao" hidden style="position:fixed;inset:0;background:#fff;z-index:50;display:grid;place-items:center;text-align:center;padding:30px">
+  <div>
+    <div style="font-size:1.4rem;color:var(--ink-2)">{{ of['titulo'] }}</div>
+    <img src="{{ url_for('qr', oficina_id=of['id']) }}" alt="QR code de acesso" style="width:min(56vh,80vw);margin:18px 0" onerror="this.remove()">
+    <div style="font-size:1.2rem">Acesse <b>{{ link.split('/o/')[0] }}/o</b> e digite o código</div>
+    <div class="code-big" style="font-size:4.5rem">{{ of['codigo'] }}</div>
+    <div style="font-size:1.3rem;margin-top:10px"><b id="proj-count">0</b> participantes · <b id="proj-env">0</b> enviaram</div>
+    <button class="sec" style="margin-top:24px" onclick="projetar(false)">Fechar (Esc)</button>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const URL_STATUS = "{{ url_for('status_json', oficina_id=of['id']) }}";
+const URL_EXCLUIR = "{{ url_for('excluir_participante', oficina_id=of['id'], pid=0) }}".replace(/0\/excluir$/, '');
+function copiar(){ const i=document.getElementById('link'); i.select(); navigator.clipboard?.writeText(i.value); }
+function projetar(on){ document.getElementById('projecao').hidden=!on; if(on) document.documentElement.requestFullscreen?.().catch(()=>{}); else if(document.fullscreenElement) document.exitFullscreen(); }
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') projetar(false); });
+function esc(s){ const d=document.createElement('div'); d.textContent=s??''; return d.innerHTML; }
+async function excluir(id, nome){
+  if(!confirm('Remover '+nome+' e suas respostas?')) return;
+  try{ await postForm(URL_EXCLUIR + id + '/excluir', new FormData()); atualizar(); }catch(e){ alert(e.message); }
+}
+async function atualizar(){
+  try{
+    const r = await fetch(URL_STATUS, {credentials:'same-origin'}); if(!r.ok) return;
+    const d = await r.json();
+    const tb = document.getElementById('lista-participantes');
+    if(!d.participantes.length){ tb.innerHTML='<tr><td colspan="5" class="muted">Ninguém entrou ainda. Projete o QR code ou compartilhe o link.</td></tr>'; }
+    else tb.innerHTML = d.participantes.map(p=>{
+      const pct = Math.round(100*p.progresso/d.total_itens);
+      const sit = p.enviado ? '<span class="badge b-consenso">Enviado</span>' : '<span class="badge b-neutro">Respondendo</span>';
+      return `<tr><td><b>${esc(p.nome)}</b></td><td class="small">${esc([p.papel,p.unidade].filter(Boolean).join(' · ')) || '<span class=muted>–</span>'}</td>
+        <td class="small"><span class="mini-progress"><span style="width:${pct}%"></span></span> ${p.progresso}/${d.total_itens}</td>
+        <td>${sit}</td><td><button class="ghost sm" type="button" onclick='excluir(${p.id}, ${JSON.stringify(p.nome)})'>Remover</button></td></tr>`;
+    }).join('');
+    document.getElementById('resumo-respostas').textContent =
+      `${d.enviados} de ${d.participantes.length} participantes enviaram. ` + (d.status==='aberta' ? 'Respostas abertas.' : 'Respostas encerradas.');
+    document.getElementById('step-respostas').classList.toggle('done', d.enviados>0 && d.status!=='aberta');
+    document.getElementById('aviso-novas').hidden = !d.respostas_apos_consolidacao;
+    document.getElementById('proj-count').textContent = d.participantes.length;
+    document.getElementById('proj-env').textContent = d.enviados;
+  }catch(e){}
+}
+atualizar(); setInterval(atualizar, 4000);
+document.getElementById('form-remover').addEventListener('submit', e => {
+  const f = e.currentTarget;
+  if (!confirm('Remover a iniciativa "' + f.dataset.titulo + '" e todos os seus dados?\n\nEsta ação não pode ser desfeita.')) e.preventDefault();
+});
+</script>
+{% endblock %}
