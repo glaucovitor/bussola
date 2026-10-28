@@ -123,44 +123,114 @@ def test_regras_divergencia():
     assert rules.analisar_condicao(["yes", "no"])["status"] == "alta"
     assert rules.analisar_condicao(["yes", "no"])["sugestao"] == "yes"
     assert rules.analisar_condicao(["partial", "no", "no"])["status"] == "consenso"
-    assert rules.ponto_entrada({"C1": 1, "C2": 1, "C3": 1, "C4": 1})[0] == rules.HO
-    assert rules.ponto_entrada({"C1": 3, "C2": 1, "C3": 1, "C4": 1})[0] == rules.EX
-    assert rules.ponto_entrada({"C1": 2, "C2": 1, "C3": 1, "C4": 1})[0] == rules.EX   # peso 2
-    assert rules.ponto_entrada({"C1": 1, "C2": 1, "C3": 3, "C4": 1})[0] == rules.EX
-    assert rules.ponto_entrada({"C1": 1, "C2": 1, "C3": 2, "C4": 3})[0] == rules.ID
-    assert rules.ponto_entrada({"C1": 1, "C2": 1, "C3": 2, "C4": 2})[0] == rules.PR
+
+
+def _R():
+    import motor
+    return motor.normalizar(motor.regras_padrao())
+
+
+def _plano(niveis, condicoes, sistema="SEI", R=None):
+    import motor
+    return motor.gerar_plano(R or _R(), {"sistemas_envolvidos": sistema}, niveis, condicoes)
+
+
+def test_ponto_de_entrada():
+    base = {f"C{i}": 1 for i in range(1, 11)}
+    casos = [({"C4": 1}, "HO"), ({"C1": 3}, "EX"), ({"C1": 2}, "EX"),      # C1 = b conta como c (peso)
+             ({"C3": 3}, "EX"), ({"C3": 2, "C4": 3}, "ID"), ({"C3": 2, "C4": 2}, "PR")]
+    for mudanca, esperado in casos:
+        assert _plano({**base, **mudanca}, {})["ponto_entrada_codigo"] == esperado, mudanca
 
 
 def test_etapas_e_intensidade():
-    import rules
     niveis = {"C1": 1, "C2": 1, "C3": 2, "C4": 2, "C5": 2, "C6": 1, "C7": 3, "C8": 2, "C9": 1, "C10": 3}
-    p = rules.gerar_plano({"sistemas_envolvidos": "SEI"}, niveis, {"T8": "yes"})
-    e = {x["fase"]: x for x in p["percurso"]}
-    assert p["ponto_entrada"] == rules.PR
-    assert not e[rules.EX]["ativa"] and not e[rules.ID]["ativa"]           # dispensadas
-    assert all(e[x]["ativa"] for x in rules.ETAPAS_SEMPRE)                  # sempre presentes
-    assert e[rules.AL]["intensidade"] == "Alta"                         # C5 = b com peso 2
-    assert e[rules.HO]["intensidade"] == "Alta"                         # C10 = c, com sistema
-    assert e[rules.AV]["intensidade"] == "Média"                             # C8 = b
-    prep = [t["nome"] for t in e[rules.PR]["tecnicas"] if t["preparatoria"]]
-    assert "Jornada completa atual (as-is)" in prep                         # veio da Exploração
-    assert p["paralelo"]
+    p = _plano(niveis, {"T8": "yes"})
+    e = {x["codigo"]: x for x in p["percurso"]}
+    assert p["ponto_entrada_codigo"] == "PR"
+    assert not e["EX"]["ativa"] and not e["ID"]["ativa"]           # dispensadas
+    assert all(e[x]["ativa"] for x in ("AL", "HO", "AV"))          # sempre presentes
+    assert e["AL"]["intensidade"] == "Alta"                        # C5 = b com peso dobrado
+    assert e["HO"]["intensidade"] == "Alta"                        # C10 = c, com sistema
+    assert e["AV"]["intensidade"] == "Média"                       # C8 = b
+    prep = [t["nome"] for t in e["PR"]["tecnicas"] if t["preparatoria"]]
+    assert "Jornada completa atual (as-is)" in prep                # veio da Exploração
+    assert p["paralelo"] and e["HO"]["em_paralelo"]
+    rotulos = [r["rotulo"] for r in e["HO"]["regras_aplicadas"]]
+    assert {"Situação", "Intensidade", "Técnicas"} <= set(rotulos)
 
 
 def test_alinhamento_na_oficina():
-    import rules
     simples = {"C1": 1, "C2": 1, "C3": 1, "C4": 2, "C5": 1, "C6": 1, "C7": 1, "C8": 1, "C9": 1, "C10": 1}
-    p = rules.gerar_plano({"sistemas_envolvidos": "SEI"}, simples, {"T8": "no"})
+    p = _plano(simples, {"T8": "no"})
     al = p["percurso"][0]
     assert p["alinhamento_na_oficina"] and al["na_oficina"] and al["intensidade"] == "Baixa"
     assert [t["nome"] for t in al["tecnicas"]] == ["Termo de abertura do projeto"]
     assert "oficina" in al["texto_intensidade"]["porque"]
-    # Sem patrocinador definido (T8 diferente de Não), o alinhamento não é considerado feito
-    p = rules.gerar_plano({"sistemas_envolvidos": "SEI"}, simples, {"T8": "unknown"})
-    assert not p["percurso"][0]["na_oficina"]
-    # C5 em nível médio (peso dobrado) também impede
-    p = rules.gerar_plano({"sistemas_envolvidos": "SEI"}, {**simples, "C5": 2}, {"T8": "no"})
-    assert not p["percurso"][0]["na_oficina"]
+    assert any(r["rotulo"] == "Exceção" for r in al["regras_aplicadas"])
+    assert not _plano(simples, {"T8": "unknown"})["percurso"][0]["na_oficina"]
+    assert not _plano({**simples, "C5": 2}, {"T8": "no"})["percurso"][0]["na_oficina"]   # peso dobrado
+
+
+def test_regras_editaveis_mudam_o_plano():
+    """Alterar o conjunto de regras muda o plano: textos, técnicas, peso e ponto de entrada."""
+    import motor
+    niveis = {f"C{i}": 2 for i in range(1, 11)}
+    R = _R()
+    R["etapas"][1]["orientacao"]["Alta"] = "TEXTO PERSONALIZADO"
+    R["tecnicas"].append({"nome": "Técnica nova", "etapa": "EX", "criterio": "C2", "niveis": [2, 3]})
+    R["criterios"]["C1"]["frases"][1] = "frase editada"
+    assert not motor.validar(R)
+    p = _plano(niveis, {}, R=R)
+    ex = p["percurso"][1]
+    assert ex["texto_intensidade"]["orientacao"] == "TEXTO PERSONALIZADO"
+    assert "Técnica nova" in [t["nome"] for t in ex["tecnicas"]]
+    assert "frase editada" in p["justificativa_entrada"]
+    # sem peso dobrado em C1, C1 = b deixa de levar à Exploração
+    R["criterios"]["C1"]["peso_dobrado"] = False
+    assert _plano(niveis, {}, R=R)["ponto_entrada_codigo"] == "PR"
+    # nova regra de entrada no topo passa a valer primeiro
+    R["ponto_entrada"]["regras"].insert(0, {"id": "x", "nome": "Teste", "etapa": "ID", "modo": "todas",
+                                            "condicoes": [{"tipo": "criterio", "criterio": "C9", "niveis": [2]}],
+                                            "texto": "Regra de teste.", "texto_peso": ""})
+    p = _plano(niveis, {}, R=R)
+    assert p["ponto_entrada_codigo"] == "ID" and p["rastro_entrada"]["regra"] == "Teste"
+
+
+def test_validacao_de_regras():
+    import motor
+    R = _R()
+    R["tecnicas"].append({"nome": "", "etapa": "XX", "criterio": "C99", "niveis": []})
+    R["ponto_entrada"]["regras"][0]["condicoes"] = []
+    erros = motor.validar(R)
+    assert any("etapa inexistente" in e for e in erros)
+    assert any("pelo menos uma condição" in e for e in erros)
+
+
+def test_editor_de_regras_versoes(app_ctx):
+    import motor
+    c = app_ctx.app.test_client()
+    tk = csrf(c.get("/regras").text)
+    assert "Versão 1" in c.get("/regras").text
+    assert c.get("/regras/editar").status_code == 200
+    R = _R()
+    R["etapas"][0]["orientacao"]["Baixa"] = "Orientação editada"
+    # simular não salva
+    r = c.post("/regras/simular", json={"regras": R, "perfil": {"C3": 1, "C5": 1, "C6": 1, "T8": "yes"}},
+               headers={"X-CSRF-Token": tk})
+    assert r.json["ok"] and r.json["plano"]["percurso"][0]["texto_intensidade"]["orientacao"] == "Orientação editada"
+    # regras inválidas são recusadas
+    ruim = _R(); ruim["focos"].append({"etapa": "ZZ", "criterio": "C1", "niveis": [2], "texto": "x"})
+    r = c.post("/regras/salvar", json={"regras": ruim}, headers={"X-CSRF-Token": tk})
+    assert r.status_code == 400 and r.json["erros"]
+    # salvar cria a versão 2
+    r = c.post("/regras/salvar", json={"regras": R, "nota": "teste"}, headers={"X-CSRF-Token": tk})
+    assert r.json["versao"] == 2
+    assert "Orientação editada" in c.get("/regras").text
+    # exportar e restaurar
+    assert c.get("/regras/exportar").json["etapas"][0]["orientacao"]["Baixa"] == "Orientação editada"
+    c.post("/regras/versoes/1/restaurar", data={"csrf_token": tk})
+    assert "Orientação editada" not in c.get("/regras").text and "Versão 3" in c.get("/regras").text
 
 
 def test_login_opcional(monkeypatch):
@@ -205,3 +275,24 @@ def test_remover_iniciativa(app_ctx):
     import sqlite3
     con = sqlite3.connect(app_ctx.app.config["DATABASE"])
     assert con.execute("SELECT COUNT(*) FROM participantes").fetchone()[0] == 0
+
+
+def test_plano_finalizado_preserva_versao_das_regras(app_ctx):
+    c = app_ctx.app.test_client()
+    tk = csrf(c.get("/oficinas").text)
+    oid = int(c.post("/oficinas/nova", data={"csrf_token": tk, "titulo": "Versões"}).headers["Location"].rsplit("/", 1)[1])
+    codigo = re.search(r'class="code-big"[^>]*>([A-Z0-9]{6})<', c.get(f"/oficinas/{oid}").text).group(1)
+    resp = {**{f"C{i}": "2" for i in range(1, 11)}, **{f"T{i}": "no" for i in range(1, 9)}}
+    p = app_ctx.app.test_client(); pt = csrf(p.get(f"/o/{codigo}").text)
+    p.post(f"/o/{codigo}", data={"csrf_token": pt, "nome": "Ana"})
+    p.post(f"/o/{codigo}/salvar", headers={"X-CSRF-Token": pt}, data={**resp, "acao": "enviar"})
+    c.post(f"/oficinas/{oid}/consolidacao", data={"csrf_token": tk, "acao": "finalizar",
+                                                  **{f"valor_{k}": v for k, v in resp.items()}})
+    antes = c.get(f"/oficinas/{oid}/plano").text
+    R = _R(); R["etapas"][1]["orientacao"]["Alta"] = "NOVA ORIENTAÇÃO"
+    c.post("/regras/salvar", json={"regras": R}, headers={"X-CSRF-Token": tk})
+    depois = c.get(f"/oficinas/{oid}/plano").text
+    assert "NOVA ORIENTAÇÃO" not in depois and "versão mais recente" in depois
+    c.post(f"/oficinas/{oid}/plano/atualizar-regras", data={"csrf_token": tk})
+    assert "NOVA ORIENTAÇÃO" in c.get(f"/oficinas/{oid}/plano").text
+    assert "regras da versão 1" in antes

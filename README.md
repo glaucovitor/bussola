@@ -21,7 +21,29 @@ Sistema web para aplicar o Formulário de Diagnóstico de Serviços em oficinas 
 
 A **sugestão** é a alternativa mais votada; em empate, prevalece a mais precavida (nível mais alto ou resposta de maior risco).
 
-Todas as regras, textos e técnicas ficam em `rules.py`. Para mudar o limiar de consenso, trocar técnicas ou ajustar o ponto de entrada, altere apenas esse arquivo.
+O limiar de consenso pode ser ajustado no editor de regras (aba *Consenso e paralelo*).
+
+## Regras do plano (editáveis)
+
+Tudo o que transforma o diagnóstico em plano fica num **conjunto de regras editável pelo próprio sistema**, no menu **Regras do plano**:
+
+- **Ponto de entrada:** regras verificadas em ordem; vale a primeira verdadeira.
+- **Etapas:** nome, se é sempre presente, critérios que definem a intensidade, entrada, saída, "avança quando", orientação por intensidade e técnicas de base.
+- **Intensidade:** o que significa alta, média e baixa, e a frase que justifica a intensidade.
+- **Exceções:** situações que mudam uma etapa, como o alinhamento feito na própria oficina ou a mudança sem sistema envolvido.
+- **Técnicas e focos:** em que etapa aparecem e em que nível do critério.
+- **Critérios:** peso dobrado, rótulos e frases de cada nível.
+- **Condições especiais, riscos, envolvimento dos atores, limiar de consenso e etapas em paralelo.**
+
+As condições das regras são montadas com um construtor visual. Elas podem usar um critério (por exemplo, "Clareza do problema está em Indefinido"), uma condição especial (por exemplo, "Engajamento e governança respondida como Não") ou um contexto ("nenhum sistema envolvido", "etapas em paralelo"). Os textos aceitam marcadores, como `{motivos}`, que o sistema preenche com a descrição do diagnóstico.
+
+**Testar antes de salvar:** a aba *Testar regras* do editor gera um plano de teste para um diagnóstico escolhido, usando as regras em edição.
+
+**Versões:** cada vez que as regras são salvas, uma nova versão é criada. O histórico permite ver, exportar e restaurar qualquer versão anterior, além das regras padrão do sistema. Um plano finalizado guarda a versão das regras com que foi gerado, então editar as regras não altera planos já entregues. No próprio plano há um botão para atualizá-lo para as regras atuais, se for o caso.
+
+**Transparência no plano:** cada etapa tem o bloco *"Como esta etapa foi definida"*, que mostra a situação da etapa, o cálculo da intensidade, as exceções aplicadas, os focos e a origem de cada técnica sugerida. O ponto de entrada mostra a regra usada, e cada ponto de atenção mostra o motivo. Esses blocos aparecem só na tela, não na impressão.
+
+**Exportar e importar:** as regras podem ser exportadas em JSON e importadas em outra instalação, por exemplo do computador local para o PythonAnywhere.
 
 ## Instalação
 
@@ -99,9 +121,11 @@ O teste de ponta a ponta simula uma oficina com cinco participantes, divergênci
 ## Estrutura
 
 ```
-app.py          rotas, banco de dados, segurança
-rules.py        conteúdo do formulário, análise de divergência e geração do plano
+app.py              rotas, banco de dados, segurança, versões das regras
+rules.py            conteúdo do questionário e análise de divergência
+motor.py            motor do plano: aplica o conjunto de regras e registra as regras aplicadas
+regras_padrao.json  regras padrão do sistema (primeira versão)
 templates/      telas (condutor, participante, consolidação, plano)
-static/         estilos
+static/         estilos e editor de regras (regras.js)
 tests/          testes automatizados
 ```

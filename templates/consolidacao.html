@@ -67,7 +67,7 @@
     {% set escolhido = d.get('valor') if d.get('valor') is not none else a['sugestao'] %}
     <section class="card crit-card s-{{ a['status'] }}" data-status="{{ a['status'] }}" id="c-{{ cod }}">
       <div class="row">
-        <div class="code">{{ cod }} · {{ item['titulo'] }}{% if item.get('peso', 1) > 1 %} (peso {{ item['peso'] }}){% endif %}</div>
+        <div class="code">{{ cod }} · {{ item['titulo'] }}{% if R['criterios'].get(cod, {}).get('peso_dobrado') %} (peso dobrado){% endif %}</div>
         <span class="spacer"></span>
         <span class="badge b-{{ a['status'] }}">{{ rules.ROTULO_STATUS[a['status']] }}</span>
         {% if a['n'] %}<span class="small muted">{{ a['concordancia'] }}% na alternativa mais votada</span>{% endif %}

@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+{% block title %}Regras do plano{% endblock %}
+{% block content %}
+{% set NOME = {} %}{% for e in R['etapas'] %}{% set _ = NOME.update({e['codigo']: e['nome']}) %}{% endfor %}
+{% macro cond(modo, condicoes) %}{{ motor.descrever_regra(R, modo, condicoes) }}{% endmacro %}
+{% macro lista(itens, vazio='–') %}{% if itens %}<ul class="rg-ul">{% for i in itens %}<li>{{ i }}</li>{% endfor %}</ul>{% else %}<span class="muted">{{ vazio }}</span>{% endif %}{% endmacro %}
+
+<div class="hero">
+  <div class="row">
+    <div style="flex:1;min-width:240px">
+      <h1>Regras do plano metodológico</h1>
+      <p>Tudo o que transforma o diagnóstico da oficina em plano: ponto de entrada, intensidade das etapas, técnicas, focos, exceções, riscos e textos.</p>
+    </div>
+    <div class="row no-print">
+      <a class="btn" href="{{ url_for('regras_editar') }}">Editar regras</a>
+      <button class="sec" type="button" onclick="window.print()">Imprimir</button>
+    </div>
+  </div>
+</div>
+
+<div class="card no-print">
+  <div class="row">
+    <div style="flex:1;min-width:240px">
+      <b>Versão {{ versao['id'] }}</b>{% if versao['id'] == ativa['id'] %} <span class="badge b-consenso">ativa</span>{% else %} <span class="badge b-neutro">versão antiga</span>{% endif %}
+      <div class="small muted">{{ versao['nota'] or 'Sem descrição' }} · {{ versao['criado_em']|datahora }}{% if uso.get(versao['id']) %} · usada em {{ uso[versao['id']] }} plano{{ 's' if uso[versao['id']] != 1 }} finalizado{{ 's' if uso[versao['id']] != 1 }}{% endif %}</div>
+    </div>
+    <a class="btn sm sec" href="{{ url_for('regras_exportar', versao=versao['id']) }}">Exportar (JSON)</a>
+    <form method="post" action="{{ url_for('regras_importar') }}" enctype="multipart/form-data" class="row" style="gap:6px">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="file" name="arquivo" accept=".json,application/json" required style="max-width:220px" aria-label="Arquivo de regras">
+      <button class="sm sec">Importar</button>
+    </form>
+  </div>
+  <details style="margin-top:12px">
+    <summary class="small"><b>Histórico de versões ({{ versoes|length }})</b></summary>
+    <div class="table-scroll"><table style="margin-top:8px">
+      <thead><tr><th>Versão</th><th>Descrição</th><th>Data</th><th>Planos finalizados</th><th></th></tr></thead>
+      <tbody>
+      {% for v in versoes %}
+        <tr><td><b>{{ v['id'] }}</b>{% if v['id'] == ativa['id'] %} <span class="badge b-consenso">ativa</span>{% endif %}</td>
+          <td class="small">{{ v['nota'] or '–' }}</td><td class="small muted">{{ v['criado_em']|datahora }}</td>
+          <td class="small">{{ uso.get(v['id'], 0) }}</td>
+          <td class="row" style="gap:4px;flex-wrap:nowrap">
+            <a class="btn ghost sm" href="{{ url_for('regras_ver', versao=v['id']) }}">Ver</a>
+            {% if v['id'] != ativa['id'] %}
+            <form method="post" action="{{ url_for('regras_restaurar', versao_id=v['id']) }}" onsubmit="return confirm('Tornar a versão {{ v['id'] }} a versão ativa? Uma nova versão será criada com o mesmo conteúdo.')">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="ghost sm">Restaurar</button></form>
+            {% endif %}
+          </td></tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+    <form method="post" action="{{ url_for('regras_restaurar_padrao') }}" style="margin-top:8px" onsubmit="return confirm('Restaurar as regras padrão do sistema? As versões atuais continuam no histórico.')">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="sm sec">Restaurar regras padrão do sistema</button>
+    </form>
+    <p class="tiny muted">Planos finalizados continuam usando a versão das regras com que foram gerados. Editar as regras não altera planos já entregues.</p>
+  </details>
+</div>
+
+<article class="card rg">
+  <nav class="rg-toc no-print">
+    <a href="#como">Como o plano é gerado</a><a href="#entrada">Ponto de entrada</a><a href="#etapas">Etapas</a>
+    <a href="#intensidade">Intensidade</a><a href="#excecoes">Exceções</a><a href="#tecnicas">Técnicas</a><a href="#focos">Focos</a>
+    <a href="#criterios">Critérios</a><a href="#condicoes">Condições especiais</a><a href="#riscos">Riscos</a>
+    <a href="#envolvimento">Envolvimento</a><a href="#consenso">Consenso</a>
+  </nav>
+
+  <section id="como" class="rg-sec">
+    <h2>Como o plano é gerado</h2>
+    <ol class="rg-steps">
+      <li><b>Consolidação.</b> O grupo decide uma alternativa para cada critério e condição. Há consenso quando ao menos {{ (R['consenso']['limiar'] * 100)|round|int }}% escolhem a mesma alternativa, sem respostas nos dois extremos.</li>
+      <li><b>Peso dobrado.</b> Critérios com peso dobrado na situação intermediária passam a contar como a situação mais complexa em todas as regras abaixo.{% set pesados = [] %}{% for cod, c in R['criterios'].items() if c['peso_dobrado'] %}{% set _ = pesados.append(rules.CRITERIOS_POR_CODIGO[cod]['titulo']) %}{% endfor %} Hoje: {{ pesados|join(', ') or 'nenhum' }}.</li>
+      <li><b>Ponto de entrada.</b> As regras de entrada são verificadas em ordem; vale a primeira verdadeira.</li>
+      <li><b>Etapas ativas.</b> Etapas “sempre presentes” são feitas em todo projeto. As demais só acontecem a partir do ponto de entrada; as anteriores são dispensadas e suas técnicas passam para a etapa de entrada como preparatórias.</li>
+      <li><b>Intensidade.</b> Cada etapa ativa recebe o maior nível entre os seus critérios: situação mais complexa = alta, intermediária = média, mais simples = baixa.</li>
+      <li><b>Exceções.</b> Quando as condições de uma exceção são atendidas, ela substitui a intensidade e os textos indicados da etapa.</li>
+      <li><b>Técnicas e focos.</b> Cada técnica e cada foco aparece quando o seu critério está no nível indicado. Todas as técnicas são sugestões.</li>
+      <li><b>Pontos de atenção e envolvimento.</b> Condições especiais, regras de risco e regras de envolvimento são verificadas e, quando verdadeiras, entram no plano.</li>
+    </ol>
+  </section>
+
+  <section id="entrada" class="rg-sec">
+    <h2>Ponto de entrada</h2>
+    <p class="small muted">Verificadas de cima para baixo; vale a primeira regra verdadeira. Depois do ponto de entrada, o percurso segue pelas etapas seguintes.</p>
+    <table>
+      <thead><tr><th>#</th><th>Quando</th><th>Vai para</th><th>Texto no plano</th></tr></thead>
+      <tbody>
+      {% for r in R['ponto_entrada']['regras'] %}
+        <tr><td>{{ loop.index }}</td>
+          <td><b>{{ r['nome'] }}</b><div class="small">{{ cond(r['modo'], r['condicoes']) }}</div></td>
+          <td><b>{{ NOME.get(r['etapa'], r['etapa']) }}</b></td>
+          <td class="small">{{ r['texto'] }}{% if r['texto_peso'] %}<div class="muted">Se o peso dobrado decidir: {{ r['texto_peso'] }}</div>{% endif %}</td></tr>
+      {% endfor %}
+        <tr><td>–</td><td><b>{{ R['ponto_entrada']['padrao']['nome'] or 'Regra padrão' }}</b><div class="small">Nenhuma das regras acima</div></td>
+          <td><b>{{ NOME.get(R['ponto_entrada']['padrao']['etapa']) }}</b></td><td class="small">{{ R['ponto_entrada']['padrao']['texto'] }}</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="etapas" class="rg-sec">
+    <h2>Etapas</h2>
+    {% if R['paralelo']['ativo'] %}<p class="small"><b>Em paralelo:</b> quando {{ NOME.get(R['paralelo']['de']) }} e {{ NOME.get(R['paralelo']['para']) }} estão ativas, a segunda corre junto com a primeira e usa a entrada “em paralelo”.</p>{% endif %}
+    {% for e in R['etapas'] %}
+    <div class="rg-etapa">
+      <h3>{{ loop.index }}. {{ e['nome'] }} <span class="small muted">· {{ 'sempre presente' if e['sempre_presente'] else 'dispensável' }}</span></h3>
+      <p class="small"><b>Critérios que definem a intensidade:</b> {% for c in e['criterios_intensidade'] %}{{ rules.CRITERIOS_POR_CODIGO[c]['titulo'] }}{{ ', ' if not loop.last }}{% else %}nenhum{% endfor %}</p>
+      <div class="rg-grid3">
+        <div><div class="rg-label">Entrada</div>{{ lista(e['entrada']) }}
+          {% if e['entrada_direta'] %}<div class="rg-label">Quando é o ponto de entrada</div>{{ lista(e['entrada_direta']) }}{% endif %}
+          {% if e['entrada_paralela'] %}<div class="rg-label">Quando corre em paralelo</div>{{ lista(e['entrada_paralela']) }}{% endif %}</div>
+        <div><div class="rg-label">Saída</div>{{ lista(e['saida']) }}<div class="rg-label">Avança quando</div><div class="small">{{ e['avanca_quando'] }}</div></div>
+        <div><div class="rg-label">Técnicas de base</div>{{ lista(e['tecnicas_base'], 'nenhuma') }}</div>
+      </div>
+      <table class="rg-orient">
+        {% for n in ('Alta', 'Média', 'Baixa') %}<tr><th>{{ n }}</th><td class="small">{{ e['orientacao'][n] }}</td></tr>{% endfor %}
+      </table>
+    </div>
+    {% endfor %}
+  </section>
+
+  <section id="intensidade" class="rg-sec">
+    <h2>Intensidade</h2>
+    <table>
+      <thead><tr><th></th><th>Profundidade</th><th>Participantes</th><th>Ciclos</th><th>Validação</th></tr></thead>
+      <tbody>{% for n, d in R['intensidade']['definicoes'].items() %}<tr><th>{{ n }}</th><td class="small">{{ d['profundidade'] }}</td><td class="small">{{ d['participantes'] }}</td><td class="small">{{ d['ciclos'] }}</td><td class="small">{{ d['validacao'] }}</td></tr>{% endfor %}</tbody>
+    </table>
+    <p class="small"><b>Frase de justificativa:</b> “{{ R['intensidade']['texto_porque'] }}”<br>
+      <b>Complemento quando o peso dobrado decide:</b> “{{ R['intensidade']['texto_peso'] }}”</p>
+    <p class="tiny muted">{intensidade} vira Alta, Média ou Baixa; {motivos} vira as frases dos critérios que definiram o nível (seção Critérios); {criterios} vira o nome dos critérios de peso dobrado.</p>
+  </section>
+
+  <section id="excecoes" class="rg-sec">
+    <h2>Exceções</h2>
+    {% for ex in R['excecoes'] %}
+    <div class="rg-etapa">
+      <h3>{{ ex['nome'] }} <span class="small muted">· {{ NOME.get(ex['etapa']) }}</span></h3>
+      <p class="small"><b>Quando:</b> {{ cond(ex['modo'], ex['condicoes']) }}</p>
+      <ul class="rg-ul small">
+        {% if ex['intensidade'] %}<li>Intensidade passa a ser <b>{{ ex['intensidade'] }}</b>.</li>{% endif %}
+        {% if ex['porque'] %}<li>Justificativa: “{{ ex['porque'] }}”</li>{% endif %}
+        {% if ex['orientacao'] %}<li>Orientação: “{{ ex['orientacao'] }}”</li>{% endif %}
+        {% if ex['entrada'] %}<li>Entrada: {{ ex['entrada']|join('; ') }}</li>{% endif %}
+        {% if ex['saida'] %}<li>Saída: {{ ex['saida']|join('; ') }}</li>{% endif %}
+        {% if ex['avanca_quando'] %}<li>Avança quando: {{ ex['avanca_quando'] }}</li>{% endif %}
+        {% if ex['tecnicas_base'] %}<li>Técnicas de base: {{ ex['tecnicas_base']|join('; ') }}</li>{% endif %}
+        <li>Técnicas dos critérios: {{ {'manter': 'mantidas', 'remover': 'removidas', 'manter_algumas': 'mantidas apenas: ' ~ ex['tecnicas_manter']|join('; ')}[ex['tecnicas_criterios']] }}</li>
+        <li>Focos: {% if ex['focos'] == 'manter' %}mantidos{% elif ex['focos'] == 'remover' %}removidos{% else %}mantidos apenas os de {% for c in ex['focos_manter'] %}{{ rules.CRITERIOS_POR_CODIGO[c]['titulo'] }}{{ ', ' if not loop.last }}{% endfor %}{% endif %}</li>
+        {% if ex['rotulo_percurso'] %}<li>No percurso, a etapa aparece como “{{ ex['rotulo_percurso'] }}”.</li>{% endif %}
+      </ul>
+    </div>
+    {% else %}<p class="muted">Nenhuma exceção cadastrada.</p>{% endfor %}
+  </section>
+
+  <section id="tecnicas" class="rg-sec">
+    <h2>Técnicas sugeridas</h2>
+    <p class="small muted">Cada técnica aparece na etapa indicada quando o critério está em um dos níveis listados. Técnicas de critérios na situação mais complexa aparecem primeiro.</p>
+    {% for e in R['etapas'] %}{% set ts = R['tecnicas']|selectattr('etapa', 'equalto', e['codigo'])|list %}
+      {% if ts %}<h3>{{ e['nome'] }}</h3>
+      <table><tbody>{% for t in ts %}<tr><td style="width:45%">{{ t['nome'] }}</td><td class="small">{{ motor.descrever_condicao(R, {'tipo': 'criterio', 'criterio': t['criterio'], 'niveis': t['niveis']}) }}</td></tr>{% endfor %}</tbody></table>{% endif %}
+    {% endfor %}
+  </section>
+
+  <section id="focos" class="rg-sec">
+    <h2>Focos das etapas</h2>
+    {% for e in R['etapas'] %}{% set fs = R['focos']|selectattr('etapa', 'equalto', e['codigo'])|list %}
+      {% if fs %}<h3>{{ e['nome'] }}</h3>
+      <table><tbody>{% for f in fs %}<tr><td style="width:55%">{{ f['texto'] }}</td><td class="small">{{ motor.descrever_condicao(R, {'tipo': 'criterio', 'criterio': f['criterio'], 'niveis': f['niveis']}) }}</td></tr>{% endfor %}</tbody></table>{% endif %}
+    {% endfor %}
+  </section>
+
+  <section id="criterios" class="rg-sec">
+    <h2>Critérios: rótulos e frases</h2>
+    <p class="small muted">O rótulo nomeia o nível no plano; a frase é usada nas justificativas ({motivos}).</p>
+    <table>
+      <thead><tr><th>Critério</th><th>Situação mais simples</th><th>Intermediária</th><th>Mais complexa</th></tr></thead>
+      <tbody>{% for c in rules.CRITERIOS %}{% set d = R['criterios'][c['codigo']] %}
+        <tr><td><b>{{ c['titulo'] }}</b>{% if d['peso_dobrado'] %}<div class="tiny muted">peso dobrado</div>{% endif %}</td>
+          {% for k in range(3) %}<td class="small"><b>{{ d['rotulos'][k] }}</b><div class="muted">{{ d['frases'][k] }}</div></td>{% endfor %}</tr>{% endfor %}</tbody>
+    </table>
+  </section>
+
+  <section id="condicoes" class="rg-sec">
+    <h2>Condições especiais</h2>
+    <table>
+      <thead><tr><th>Condição</th><th>Gera ponto de atenção quando</th><th>Ação recomendada</th><th>Etapa</th></tr></thead>
+      <tbody>{% for t in rules.CONDICOES %}{% set d = R['condicoes_especiais'][t['codigo']] %}
+        <tr><td><b>{{ t['titulo'] }}</b></td><td class="small">{% for r in d['respostas'] %}{{ rules.RESPOSTAS_T[r] }}{{ '; ' if not loop.last }}{% else %}nunca{% endfor %}</td>
+          <td class="small">{{ d['acao'] }}</td><td class="small">{{ d['etapa'] }}</td></tr>{% endfor %}</tbody>
+    </table>
+  </section>
+
+  <section id="riscos" class="rg-sec">
+    <h2>Riscos</h2>
+    <table>
+      <thead><tr><th>Risco</th><th>Quando</th><th>Texto</th></tr></thead>
+      <tbody>{% for r in R['riscos'] %}<tr><td><b>{{ r['titulo'] }}</b></td><td class="small">{{ cond(r['modo'], r['condicoes']) }}</td><td class="small">{{ r['texto'] }}</td></tr>{% endfor %}
+      {% if R['risco_divergencia']['ativo'] %}<tr><td><b>{{ R['risco_divergencia']['titulo'] }}</b></td><td class="small">Critério com divergência alta na consolidação</td><td class="small">{{ R['risco_divergencia']['texto'] }}</td></tr>{% endif %}</tbody>
+    </table>
+  </section>
+
+  <section id="envolvimento" class="rg-sec">
+    <h2>Envolvimento dos atores</h2>
+    <p class="small muted">Os textos das regras verdadeiras são juntados, nesta ordem.</p>
+    <table><tbody>{% for r in R['envolvimento'] %}<tr><td class="small" style="width:40%">{{ cond(r['modo'], r['condicoes']) }}</td><td class="small">{{ r['texto'] }}</td></tr>{% endfor %}</tbody></table>
+  </section>
+
+  <section id="consenso" class="rg-sec">
+    <h2>Consenso</h2>
+    <p class="small">Um item está em consenso quando todos responderam igual, ou quando ao menos <b>{{ (R['consenso']['limiar'] * 100)|round|int }}%</b> escolheram a mesma alternativa sem respostas nos dois extremos.</p>
+  </section>
+</article>
+{% endblock %}

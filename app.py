@@ -18,6 +18,7 @@ from functools import wraps
 from flask import (Flask, Response, abort, flash, g, jsonify, redirect,
                    render_template, request, session, url_for)
 
+import motor
 import rules
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -80,6 +81,12 @@ CREATE TABLE IF NOT EXISTS participantes (
     criado_em TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_participantes_oficina ON participantes(oficina_id);
+CREATE TABLE IF NOT EXISTS regras_versoes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    conteudo TEXT NOT NULL,
+    nota TEXT,
+    criado_em TEXT NOT NULL
+);
 """
 
 
@@ -106,11 +113,46 @@ def init_db():
     con = sqlite3.connect(app.config["DATABASE"])
     con.execute("PRAGMA journal_mode = WAL")
     con.executescript(SCHEMA)
+    # Migração: versão das regras usada em cada plano finalizado
+    colunas = [r[1] for r in con.execute("PRAGMA table_info(oficinas)")]
+    if "regras_versao_id" not in colunas:
+        con.execute("ALTER TABLE oficinas ADD COLUMN regras_versao_id INTEGER")
+    # Primeira versão das regras = regras padrão
+    if not con.execute("SELECT 1 FROM regras_versoes LIMIT 1").fetchone():
+        con.execute("INSERT INTO regras_versoes (conteudo, nota, criado_em) VALUES (?,?,?)",
+                    (json.dumps(motor.regras_padrao(), ensure_ascii=False), "Regras padrão do sistema",
+                     datetime.now().isoformat(timespec="seconds")))
+    # Planos finalizados antes do versionamento ficam presos à primeira versão
+    primeira = con.execute("SELECT MIN(id) FROM regras_versoes").fetchone()[0]
+    con.execute("UPDATE oficinas SET regras_versao_id = ? WHERE finalizada_em IS NOT NULL AND regras_versao_id IS NULL",
+                (primeira,))
     con.commit()
     con.close()
 
 
 init_db()
+
+
+# ---------------------------------------------------------------------------
+# Regras do plano (versionadas)
+# ---------------------------------------------------------------------------
+def versao_regras(versao_id=None):
+    """Retorna (linha da versão, regras normalizadas). Sem id, retorna a versão ativa (a mais recente)."""
+    db = get_db()
+    if versao_id:
+        row = db.execute("SELECT * FROM regras_versoes WHERE id = ?", (versao_id,)).fetchone()
+        if row:
+            return row, motor.normalizar(json.loads(row["conteudo"]))
+    row = db.execute("SELECT * FROM regras_versoes ORDER BY id DESC LIMIT 1").fetchone()
+    return row, motor.normalizar(json.loads(row["conteudo"]))
+
+
+def salvar_versao(R, nota):
+    db = get_db()
+    cur = db.execute("INSERT INTO regras_versoes (conteudo, nota, criado_em) VALUES (?,?,?)",
+                     (json.dumps(R, ensure_ascii=False), (nota or "").strip()[:300], agora()))
+    db.commit()
+    return cur.lastrowid
 
 
 def agora():
@@ -422,7 +464,8 @@ def consolidacao(oficina_id):
     of = oficina_do_condutor(oficina_id)
     enviados = respostas_enviadas(oficina_id)
     respostas = [carregar(p["respostas_json"]) for p in enviados]
-    analise = rules.analisar_oficina(respostas)
+    _, R = versao_regras()
+    analise = rules.analisar_oficina(respostas, float(R["consenso"]["limiar"]))
     decisoes = carregar(of["consolidacao_json"])
 
     if request.method == "POST":
@@ -449,8 +492,9 @@ def consolidacao(oficina_id):
                 db.commit()
                 flash("Para finalizar, defina o valor de " + ", ".join(faltando) + ".", "erro")
                 return redirect(url_for("consolidacao", oficina_id=oficina_id))
-            db.execute("UPDATE oficinas SET finalizada_em = ?, status = 'encerrada' WHERE id = ?",
-                       (agora(), oficina_id))
+            versao_atual, _ = versao_regras()
+            db.execute("UPDATE oficinas SET finalizada_em = ?, status = 'encerrada', regras_versao_id = ? WHERE id = ?",
+                       (agora(), versao_atual["id"], oficina_id))
             db.commit()
             flash("Consolidação finalizada. O plano metodológico está pronto.", "ok")
             return redirect(url_for("plano", oficina_id=oficina_id))
@@ -467,16 +511,19 @@ def consolidacao(oficina_id):
                             "comentarios": carregar(p["comentarios_json"])})
     contagem = {s: sum(1 for c in TODOS_CODIGOS if analise[c]["status"] == s)
                 for s in ("consenso", "moderada", "alta")}
-    return render_template("consolidacao.html", of=of, rules=rules, analise=analise,
+    return render_template("consolidacao.html", of=of, rules=rules, R=R, analise=analise,
                            decisoes=decisoes, individuais=individuais, contagem=contagem,
                            total_participantes=len(participantes_da(oficina_id)))
 
 
 # --- Plano metodológico ------------------------------------------------------
 def montar_plano(of):
+    """Plano finalizado usa a versão das regras gravada na finalização; os demais, a versão ativa."""
+    versao, R = versao_regras(of["regras_versao_id"] if of["finalizada_em"] else None)
     decisoes = carregar(of["consolidacao_json"])
     enviados = respostas_enviadas(of["id"])
-    analise = rules.analisar_oficina([carregar(p["respostas_json"]) for p in enviados])
+    analise = rules.analisar_oficina([carregar(p["respostas_json"]) for p in enviados],
+                                     float(R["consenso"]["limiar"]))
     niveis, condicoes, registro, faltando = {}, {}, {}, []
     for cod in TODOS_CODIGOS:
         d = decisoes.get(cod, {})
@@ -491,28 +538,42 @@ def montar_plano(of):
                          "justificativa": d.get("justificativa", ""),
                          "valor": valor}
     if faltando:
-        return None, faltando, registro, enviados
+        return None, faltando, registro, enviados, versao, R
     ctx = carregar(of["contexto_json"])
-    return rules.gerar_plano(ctx, niveis, condicoes, registro), [], registro, enviados
+    return motor.gerar_plano(R, ctx, niveis, condicoes, registro), [], registro, enviados, versao, R
 
 
 @app.route("/oficinas/<int:oficina_id>/plano")
 @somente_condutor
 def plano(oficina_id):
     of = oficina_do_condutor(oficina_id)
-    p, faltando, registro, enviados = montar_plano(of)
+    p, faltando, registro, enviados, versao, R = montar_plano(of)
+    ativa, _ = versao_regras()
     return render_template("plano.html", of=of, plano=p, faltando=faltando, registro=registro,
-                           ctx=carregar(of["contexto_json"]), rules=rules, enviados=enviados,
-                           gerado_em=agora())
+                           ctx=carregar(of["contexto_json"]), rules=rules, R=R, enviados=enviados,
+                           gerado_em=agora(), versao=versao, versao_ativa=ativa)
+
+
+@app.route("/oficinas/<int:oficina_id>/plano/atualizar-regras", methods=["POST"])
+@somente_condutor
+def atualizar_regras_do_plano(oficina_id):
+    oficina_do_condutor(oficina_id)
+    ativa, _ = versao_regras()
+    db = get_db()
+    db.execute("UPDATE oficinas SET regras_versao_id = ? WHERE id = ?", (ativa["id"], oficina_id))
+    db.commit()
+    flash(f"Plano atualizado para as regras da versão {ativa['id']}.", "ok")
+    return redirect(url_for("plano", oficina_id=oficina_id))
 
 
 @app.route("/oficinas/<int:oficina_id>/plano.json")
 @somente_condutor
 def plano_json(oficina_id):
     of = oficina_do_condutor(oficina_id)
-    p, faltando, registro, enviados = montar_plano(of)
+    p, faltando, registro, enviados, versao, _ = montar_plano(of)
     dados = {
         "oficina": {"codigo": of["codigo"], "titulo": of["titulo"], "finalizada_em": of["finalizada_em"]},
+        "regras_versao": versao["id"],
         "contexto": carregar(of["contexto_json"]),
         "consolidacao": registro,
         "participantes": [{"nome": e["nome"], "papel": e["papel"], "unidade": e["unidade"],
@@ -546,6 +607,118 @@ def respostas_csv(oficina_id):
                    + valores + [c.get(cod, "") for cod in TODOS_CODIGOS])
     return Response("﻿" + buf.getvalue(), mimetype="text/csv; charset=utf-8",
                     headers={"Content-Disposition": f"attachment; filename=respostas_{of['codigo']}.csv"})
+
+
+# ---------------------------------------------------------------------------
+# Regras do plano: leitura, edição, versões e simulação
+# ---------------------------------------------------------------------------
+def _uso_versoes():
+    return {r["regras_versao_id"]: r["n"] for r in get_db().execute(
+        "SELECT regras_versao_id, COUNT(*) AS n FROM oficinas WHERE regras_versao_id IS NOT NULL GROUP BY regras_versao_id")}
+
+
+@app.route("/regras")
+@somente_condutor
+def regras_ver():
+    versao_id = request.args.get("versao", type=int)
+    versao, R = versao_regras(versao_id)
+    ativa, _ = versao_regras()
+    versoes = get_db().execute("SELECT id, nota, criado_em FROM regras_versoes ORDER BY id DESC").fetchall()
+    return render_template("regras.html", R=R, versao=versao, ativa=ativa, versoes=versoes,
+                           uso=_uso_versoes(), rules=rules, motor=motor)
+
+
+@app.route("/regras/editar")
+@somente_condutor
+def regras_editar():
+    versao, R = versao_regras()
+    meta = {
+        "criterios": [{"codigo": c["codigo"], "titulo": c["titulo"], "opcoes": c["opcoes"]} for c in rules.CRITERIOS],
+        "condicoes": [{"codigo": t["codigo"], "titulo": t["titulo"]} for t in rules.CONDICOES],
+        "respostas": rules.RESPOSTAS_T,
+        "contextos": motor.CONTEXTOS,
+    }
+    return render_template("regras_editar.html", R=R, versao=versao, meta=meta)
+
+
+def _ler_regras_json():
+    dados = request.get_json(silent=True) or {}
+    R = dados.get("regras")
+    if not isinstance(R, dict):
+        return None, None, ["Conteúdo das regras ausente."]
+    try:
+        R = motor.normalizar(R)
+    except (TypeError, KeyError, AttributeError, ValueError):
+        return None, None, ["O conjunto de regras está mal formado."]
+    return R, dados, motor.validar(R)
+
+
+@app.route("/regras/salvar", methods=["POST"])
+@somente_condutor
+def regras_salvar():
+    R, dados, erros = _ler_regras_json()
+    if erros:
+        return jsonify(ok=False, erros=erros), 400
+    vid = salvar_versao(R, dados.get("nota") or "Edição pelo editor de regras")
+    return jsonify(ok=True, versao=vid)
+
+
+@app.route("/regras/simular", methods=["POST"])
+@somente_condutor
+def regras_simular():
+    R, dados, erros = _ler_regras_json()
+    if erros:
+        return jsonify(ok=False, erros=erros), 400
+    perfil = dados.get("perfil") or {}
+    niveis = {c: int(perfil.get(c, 1)) for c in CODIGOS_C if str(perfil.get(c, 1)) in ("1", "2", "3")}
+    condicoes = {t: perfil.get(t, "no") for t in CODIGOS_T if perfil.get(t, "no") in rules.RESPOSTAS_T}
+    plano = motor.simular(R, niveis, condicoes, bool(perfil.get("tem_sistema", True)))
+    return jsonify(ok=True, plano=plano)
+
+
+@app.route("/regras/exportar")
+@somente_condutor
+def regras_exportar():
+    versao, R = versao_regras(request.args.get("versao", type=int))
+    return Response(json.dumps(R, ensure_ascii=False, indent=2), mimetype="application/json",
+                    headers={"Content-Disposition": f"attachment; filename=regras_bussola_v{versao['id']}.json"})
+
+
+@app.route("/regras/importar", methods=["POST"])
+@somente_condutor
+def regras_importar():
+    arquivo = request.files.get("arquivo")
+    try:
+        R = motor.normalizar(json.loads(arquivo.read().decode("utf-8")))
+    except (AttributeError, ValueError, TypeError, KeyError):
+        flash("Não foi possível ler o arquivo. Envie um JSON exportado pelo sistema.", "erro")
+        return redirect(url_for("regras_ver"))
+    erros = motor.validar(R)
+    if erros:
+        flash("O arquivo tem problemas e não foi importado: " + " ".join(erros[:5]), "erro")
+        return redirect(url_for("regras_ver"))
+    vid = salvar_versao(R, f"Importada de {arquivo.filename}")
+    flash(f"Regras importadas como versão {vid}, que passa a ser a ativa.", "ok")
+    return redirect(url_for("regras_ver"))
+
+
+@app.route("/regras/versoes/<int:versao_id>/restaurar", methods=["POST"])
+@somente_condutor
+def regras_restaurar(versao_id):
+    versao, R = versao_regras(versao_id)
+    if versao["id"] != versao_id:
+        abort(404)
+    vid = salvar_versao(R, f"Restauração da versão {versao_id}")
+    flash(f"A versão {versao_id} foi restaurada como versão {vid}, que passa a ser a ativa.", "ok")
+    return redirect(url_for("regras_ver"))
+
+
+@app.route("/regras/padrao", methods=["POST"])
+@somente_condutor
+def regras_restaurar_padrao():
+    vid = salvar_versao(motor.regras_padrao(), "Restauração das regras padrão do sistema")
+    flash(f"As regras padrão foram restauradas como versão {vid}.", "ok")
+    return redirect(url_for("regras_ver"))
 
 
 # ---------------------------------------------------------------------------

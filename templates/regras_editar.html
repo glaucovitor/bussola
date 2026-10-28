@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Editar regras{% endblock %}
+{% block content %}
+<p class="small no-print"><a href="{{ url_for('regras_ver') }}">← Voltar às regras</a></p>
+<div class="hero">
+  <h1>Editar regras do plano</h1>
+  <p>Editando a partir da versão {{ versao['id'] }}. Ao salvar, é criada uma nova versão, que passa a valer para os próximos planos. Planos já finalizados não mudam.</p>
+</div>
+
+<div class="ed">
+  <nav class="ed-tabs" id="abas" role="tablist">
+    <button type="button" data-aba="entrada" class="on">Ponto de entrada</button>
+    <button type="button" data-aba="etapas">Etapas</button>
+    <button type="button" data-aba="intensidade">Intensidade e textos</button>
+    <button type="button" data-aba="excecoes">Exceções</button>
+    <button type="button" data-aba="tecnicas">Técnicas</button>
+    <button type="button" data-aba="focos">Focos</button>
+    <button type="button" data-aba="criterios">Critérios</button>
+    <button type="button" data-aba="condicoes">Condições especiais</button>
+    <button type="button" data-aba="riscos">Riscos</button>
+    <button type="button" data-aba="envolvimento">Envolvimento</button>
+    <button type="button" data-aba="geral">Consenso e paralelo</button>
+    <button type="button" data-aba="testar" class="ed-test">▶ Testar regras</button>
+  </nav>
+  <div class="ed-main">
+    <div id="erros" class="flash erro" hidden></div>
+    <div id="editor" class="card"></div>
+  </div>
+</div>
+
+<div class="sticky-bar"><div class="row">
+  <span class="small" id="estado">Nenhuma alteração</span>
+  <span class="spacer"></span>
+  <input type="text" id="nota" maxlength="300" placeholder="Descreva a alteração (opcional)" style="max-width:360px" aria-label="Descrição da alteração">
+  <a class="btn sec" href="{{ url_for('regras_editar') }}" id="descartar">Descartar</a>
+  <button type="button" id="salvar">Salvar nova versão</button>
+</div></div>
+
+<script id="dados-regras" type="application/json">{{ R|tojson }}</script>
+<script id="dados-meta" type="application/json">{{ meta|tojson }}</script>
+{% endblock %}
+{% block scripts %}
+<script>
+const URL_SALVAR = "{{ url_for('regras_salvar') }}";
+const URL_SIMULAR = "{{ url_for('regras_simular') }}";
+const URL_VER = "{{ url_for('regras_ver') }}";
+</script>
+<script src="{{ url_for('static', filename='regras.js') }}"></script>
+{% endblock %}

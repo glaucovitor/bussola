@@ -1,0 +1,1262 @@
+{
+  "formato": 1,
+  "consenso": {
+    "limiar": 0.6667
+  },
+  "criterios": {
+    "C1": {
+      "peso_dobrado": true,
+      "rotulos": [
+        "Claro",
+        "Parcialmente claro",
+        "Indefinido"
+      ],
+      "frases": [
+        "o problema já está claramente delimitado",
+        "ainda há dúvidas sobre as causas e a abrangência do problema",
+        "o problema ainda não está delimitado"
+      ]
+    },
+    "C2": {
+      "peso_dobrado": false,
+      "rotulos": [
+        "Suficientes",
+        "Incompletas",
+        "Inexistentes"
+      ],
+      "frases": [
+        "há evidências suficientes sobre o problema",
+        "as evidências disponíveis são incompletas ou desatualizadas",
+        "faltam evidências estruturadas sobre o problema"
+      ]
+    },
+    "C3": {
+      "peso_dobrado": false,
+      "rotulos": [
+        "Estruturada",
+        "Em refinamento",
+        "Inicial"
+      ],
+      "frases": [
+        "o escopo da demanda já está definido",
+        "o escopo ainda precisa ser refinado",
+        "a demanda está em fase inicial e o escopo precisa ser construído"
+      ]
+    },
+    "C4": {
+      "peso_dobrado": false,
+      "rotulos": [
+        "Definida e validada",
+        "Proposta a refinar",
+        "Não definida"
+      ],
+      "frases": [
+        "a solução já está definida e validada",
+        "existe uma proposta de solução que precisa ser refinada e testada",
+        "a solução ainda não está definida"
+      ]
+    },
+    "C5": {
+      "peso_dobrado": true,
+      "rotulos": [
+        "Restrita",
+        "Diversa",
+        "Muito diversa"
+      ],
+      "frases": [
+        "o público é restrito e homogêneo",
+        "há diferentes grupos de usuários e áreas a considerar",
+        "há múltiplos públicos e instituições com necessidades distintas"
+      ]
+    },
+    "C6": {
+      "peso_dobrado": false,
+      "rotulos": [
+        "Alinhados",
+        "Divergências pontuais",
+        "Conflito significativo"
+      ],
+      "frases": [
+        "os atores estão alinhados",
+        "há divergências pontuais entre os atores",
+        "há conflitos significativos de interesse entre os atores"
+      ]
+    },
+    "C7": {
+      "peso_dobrado": false,
+      "rotulos": [
+        "Pontual",
+        "Em etapas específicas",
+        "De ponta a ponta"
+      ],
+      "frases": [
+        "a mudança no serviço é pontual",
+        "a mudança altera etapas específicas do serviço",
+        "o serviço será transformado de ponta a ponta"
+      ]
+    },
+    "C8": {
+      "peso_dobrado": false,
+      "rotulos": [
+        "Baixo",
+        "Moderado",
+        "Elevado"
+      ],
+      "frases": [
+        "o risco institucional é baixo",
+        "o risco institucional é moderado",
+        "o risco institucional é elevado"
+      ]
+    },
+    "C9": {
+      "peso_dobrado": false,
+      "rotulos": [
+        "Pouca",
+        "Moderada",
+        "Significativa"
+      ],
+      "frases": [
+        "a solução se integra às rotinas atuais",
+        "a solução exige adaptações moderadas nas rotinas",
+        "a solução exige mudanças significativas de comportamento"
+      ]
+    },
+    "C10": {
+      "peso_dobrado": false,
+      "rotulos": [
+        "Poucas",
+        "Exigem alinhamento",
+        "Complexas"
+      ],
+      "frases": [
+        "há poucas dependências técnicas e legais",
+        "há dependências que exigem alinhamento com outras áreas",
+        "há múltiplas dependências técnicas e normativas complexas"
+      ]
+    }
+  },
+  "etapas": [
+    {
+      "codigo": "AL",
+      "nome": "Alinhamento e Escopo",
+      "curta": "Alinhamento",
+      "sempre_presente": true,
+      "criterios_intensidade": [
+        "C3",
+        "C5",
+        "C6"
+      ],
+      "entrada": [
+        "Demanda da unidade",
+        "Diagnóstico consolidado na oficina"
+      ],
+      "entrada_direta": [],
+      "entrada_paralela": [],
+      "saida": [
+        "Termo de abertura com patrocinador e rito de decisão",
+        "Escopo e desafio aprovados",
+        "Mapa de atores"
+      ],
+      "avanca_quando": "O patrocinador aprova o escopo e o desafio.",
+      "orientacao": {
+        "Alta": "O alinhamento deve ser tratado como uma frente de trabalho, e não como uma reunião de abertura. Prever oficinas com o patrocinador e com cada área envolvida até chegar a um escopo e a um desafio aceitos por todos, com o rito de decisão registrado no termo de abertura.",
+        "Média": "Uma oficina com o patrocinador e os representantes das áreas principais deve bastar para fechar o escopo e o desafio. O importante é registrar as decisões e o que fica fora do projeto.",
+        "Baixa": "O escopo está claro e os atores estão alinhados. Uma reunião de abertura com o patrocinador é suficiente para confirmar o escopo e formalizar o termo de abertura."
+      },
+      "tecnicas_base": [
+        "Termo de abertura do projeto"
+      ]
+    },
+    {
+      "codigo": "EX",
+      "nome": "Exploração do problema",
+      "curta": "Exploração",
+      "sempre_presente": false,
+      "criterios_intensidade": [
+        "C1",
+        "C2",
+        "C7"
+      ],
+      "entrada": [
+        "Escopo e desafio aprovados",
+        "Mapa de atores"
+      ],
+      "entrada_direta": [],
+      "entrada_paralela": [],
+      "saida": [
+        "Problema reenquadrado",
+        "Evidências e relatório de pesquisa",
+        "Personas",
+        "Jornada atual (as-is)"
+      ],
+      "avanca_quando": "O demandante valida o problema e as evidências.",
+      "orientacao": {
+        "Alta": "A exploração é o centro do projeto neste momento. Prever pesquisa de campo com usuários e operadores do serviço, em mais de uma rodada, antes de qualquer discussão sobre solução. A etapa termina quando o demandante validar o problema reenquadrado com base nas evidências reunidas.",
+        "Média": "Já existe conhecimento sobre o problema, mas com lacunas. Concentrar a pesquisa nessas lacunas, combinando os dados disponíveis com algumas entrevistas, e validar o problema reenquadrado com o patrocinador.",
+        "Baixa": "O problema e as evidências já são conhecidos. A etapa serve para reunir o material existente e confirmar o enquadramento do problema com o demandante."
+      },
+      "tecnicas_base": [
+        "Reenquadramento do problema (“Como poderíamos…”)"
+      ]
+    },
+    {
+      "codigo": "ID",
+      "nome": "Ideação da Solução",
+      "curta": "Ideação",
+      "sempre_presente": false,
+      "criterios_intensidade": [
+        "C4",
+        "C5",
+        "C6"
+      ],
+      "entrada": [
+        "Problema reenquadrado",
+        "Personas e jornada atual"
+      ],
+      "entrada_direta": [
+        "Escopo e desafio aprovados",
+        "Problema e evidências já conhecidos"
+      ],
+      "entrada_paralela": [],
+      "saida": [
+        "Conceito de solução escolhido",
+        "Jornada futura (to-be)"
+      ],
+      "avanca_quando": "O patrocinador aprova o conceito.",
+      "orientacao": {
+        "Alta": "Gerar e comparar alternativas antes de escolher um caminho. Conduzir sessões de ideação com os diferentes públicos e priorizar as ideias com critérios combinados previamente com o patrocinador, para que a escolha seja compreendida e aceita.",
+        "Média": "Já existe uma direção de solução. A ideação deve explorar variações dessa direção e verificar a viabilidade de cada uma, sem reabrir a discussão sobre o problema.",
+        "Baixa": "A solução já está escolhida. A etapa se limita a registrar a escolha e as razões que a sustentam."
+      },
+      "tecnicas_base": []
+    },
+    {
+      "codigo": "PR",
+      "nome": "Prototipação da Solução",
+      "curta": "Prototipação",
+      "sempre_presente": false,
+      "criterios_intensidade": [
+        "C4",
+        "C7",
+        "C8",
+        "C9"
+      ],
+      "entrada": [
+        "Conceito escolhido",
+        "Jornada futura (to-be)"
+      ],
+      "entrada_direta": [
+        "Escopo aprovado",
+        "Proposta de solução existente"
+      ],
+      "entrada_paralela": [],
+      "saida": [
+        "Solução testada com usuários",
+        "Service blueprint"
+      ],
+      "avanca_quando": "Os testes mostram que a solução resolve o problema.",
+      "orientacao": {
+        "Alta": "Testar a solução com usuários reais em ciclos sucessivos, aumentando a fidelidade dos protótipos a cada rodada. O que for validado em cada ciclo já pode seguir para o desenvolvimento, sem esperar o fim da etapa.",
+        "Média": "Um ciclo de testes com protótipos simples deve bastar para confirmar a proposta e ajustar os pontos críticos antes de entregá-la ao desenvolvimento.",
+        "Baixa": "A solução já foi validada. A etapa serve para revisar as evidências dessa validação e confirmar que continuam válidas para o serviço."
+      },
+      "tecnicas_base": []
+    },
+    {
+      "codigo": "HO",
+      "nome": "Handover e integração com desenvolvimento paralelo",
+      "curta": "Handover",
+      "sempre_presente": true,
+      "criterios_intensidade": [
+        "C10",
+        "C7"
+      ],
+      "entrada": [
+        "Solução validada"
+      ],
+      "entrada_direta": [
+        "Escopo aprovado",
+        "Solução definida e validada"
+      ],
+      "entrada_paralela": [
+        "Partes da solução validadas na prototipação, por incrementos"
+      ],
+      "saida": [
+        "Histórias de usuário com critérios de aceite",
+        "Blueprint para o time de desenvolvimento",
+        "Acordo de integração"
+      ],
+      "avanca_quando": "As entregas estão no backlog do desenvolvimento.",
+      "orientacao": {
+        "Alta": "Acompanhar de perto o time de desenvolvimento, com rituais regulares, e entregar a solução por incrementos. Integrações e adequações normativas devem entrar no cronograma como marcos, para não bloquear a construção.",
+        "Média": "Organizar a entrega ao desenvolvimento com histórias de usuário e critérios de aceite claros, e combinar pontos de acompanhamento para tirar dúvidas durante a construção.",
+        "Baixa": "Uma reunião de passagem com o time responsável, apresentando as histórias de usuário e os critérios de aceite, é suficiente."
+      },
+      "tecnicas_base": [
+        "Histórias de usuário com critérios de aceite de experiência"
+      ]
+    },
+    {
+      "codigo": "AV",
+      "nome": "Avaliação e Melhoria Contínua",
+      "curta": "Avaliação",
+      "sempre_presente": true,
+      "criterios_intensidade": [
+        "C8",
+        "C9"
+      ],
+      "entrada": [
+        "Solução em operação (piloto ou implantação)",
+        "Indicadores definidos"
+      ],
+      "entrada_direta": [],
+      "entrada_paralela": [],
+      "saida": [
+        "Indicadores medidos",
+        "Backlog de melhorias"
+      ],
+      "avanca_quando": "O próximo ciclo de melhoria está definido.",
+      "orientacao": {
+        "Alta": "Começar com um piloto controlado, com plano de reversão, e acompanhar indicadores de experiência e de operação antes de ampliar. Programar ciclos periódicos de melhoria a partir do que for observado.",
+        "Média": "Definir indicadores de acompanhamento e preparar comunicação e capacitação para quem usa e opera o serviço. Revisar os resultados depois de um período de uso e ajustar o que for necessário.",
+        "Baixa": "Acompanhar poucos indicadores de experiência e manter um canal aberto para o retorno dos usuários."
+      },
+      "tecnicas_base": [
+        "Indicadores de experiência e canal de feedback dos usuários"
+      ]
+    }
+  ],
+  "paralelo": {
+    "ativo": true,
+    "de": "PR",
+    "para": "HO"
+  },
+  "ponto_entrada": {
+    "regras": [
+      {
+        "id": "entrada-exploracao",
+        "nome": "Problema ou contexto ainda pouco conhecidos",
+        "etapa": "EX",
+        "modo": "qualquer",
+        "condicoes": [
+          {
+            "tipo": "criterio",
+            "criterio": "C1",
+            "niveis": [
+              3
+            ]
+          },
+          {
+            "tipo": "criterio",
+            "criterio": "C2",
+            "niveis": [
+              3
+            ]
+          },
+          {
+            "tipo": "criterio",
+            "criterio": "C3",
+            "niveis": [
+              3
+            ]
+          }
+        ],
+        "texto": "Depois do alinhamento, o trabalho segue para a exploração do problema, porque {motivos}.",
+        "texto_peso": " A clareza do problema tem peso dobrado no diagnóstico, por isso qualquer dúvida sobre ela já leva à exploração."
+      },
+      {
+        "id": "entrada-ideacao",
+        "nome": "Problema compreendido, solução indefinida",
+        "etapa": "ID",
+        "modo": "qualquer",
+        "condicoes": [
+          {
+            "tipo": "criterio",
+            "criterio": "C4",
+            "niveis": [
+              3
+            ]
+          }
+        ],
+        "texto": "O problema já está compreendido, mas a solução ainda não está definida. Depois do alinhamento, o trabalho segue para a ideação, para gerar e comparar alternativas.",
+        "texto_peso": ""
+      },
+      {
+        "id": "entrada-prototipacao",
+        "nome": "Já existe proposta de solução",
+        "etapa": "PR",
+        "modo": "qualquer",
+        "condicoes": [
+          {
+            "tipo": "criterio",
+            "criterio": "C4",
+            "niveis": [
+              2
+            ]
+          }
+        ],
+        "texto": "Já existe uma proposta de solução que precisa ser refinada e testada. Depois do alinhamento, o trabalho segue para a prototipação, sem necessidade de nova exploração ou ideação.",
+        "texto_peso": ""
+      }
+    ],
+    "padrao": {
+      "etapa": "HO",
+      "nome": "Solução definida e validada",
+      "texto": "A solução já está definida e validada. Depois do alinhamento, o trabalho segue diretamente para o handover ao desenvolvimento."
+    }
+  },
+  "intensidade": {
+    "definicoes": {
+      "Alta": {
+        "profundidade": "Frente de trabalho própria, combinando várias técnicas",
+        "participantes": "Usuários finais e todas as áreas envolvidas",
+        "ciclos": "Mais de um ciclo, revisando a partir do que se aprendeu",
+        "validacao": "Com usuários e com o patrocinador"
+      },
+      "Média": {
+        "profundidade": "Uma ou duas técnicas, focadas no que ainda está incerto",
+        "participantes": "Representantes dos principais grupos",
+        "ciclos": "Um ciclo",
+        "validacao": "Com o patrocinador"
+      },
+      "Baixa": {
+        "profundidade": "Revisão do que já existe, sem produzir material novo",
+        "participantes": "Equipe do projeto e demandante",
+        "ciclos": "Uma reunião de verificação",
+        "validacao": "Confirmação do demandante"
+      }
+    },
+    "texto_porque": "{intensidade} intensidade porque {motivos}.",
+    "texto_peso": " Como {criterios} {tem} peso dobrado no diagnóstico, essa situação já basta para elevar a intensidade."
+  },
+  "excecoes": [
+    {
+      "id": "alinhamento-na-oficina",
+      "nome": "Alinhamento feito na própria oficina",
+      "etapa": "AL",
+      "modo": "todas",
+      "condicoes": [
+        {
+          "tipo": "criterio",
+          "criterio": "C3",
+          "niveis": [
+            1
+          ]
+        },
+        {
+          "tipo": "criterio",
+          "criterio": "C5",
+          "niveis": [
+            1
+          ]
+        },
+        {
+          "tipo": "criterio",
+          "criterio": "C6",
+          "niveis": [
+            1
+          ]
+        },
+        {
+          "tipo": "condicao",
+          "condicao": "T8",
+          "respostas": [
+            "no"
+          ]
+        }
+      ],
+      "intensidade": "Baixa",
+      "rotulo_percurso": "Feito na oficina",
+      "selo": "Realizado na oficina",
+      "porque": "Baixa intensidade porque o escopo da demanda já está definido, o público é restrito e homogêneo, os atores estão alinhados e a iniciativa tem patrocinador definido. A própria oficina de diagnóstico cumpriu o papel de alinhamento.",
+      "orientacao": "Resta formalizar o termo de abertura com o patrocinador, registrando o escopo, o desafio e o rito de decisão combinados na oficina. Não é preciso nova reunião de alinhamento.",
+      "entrada": [
+        "Identificação e contextualização acordadas pelo grupo",
+        "Diagnóstico consolidado na oficina"
+      ],
+      "saida": [
+        "Termo de abertura assinado, com escopo, desafio e rito de decisão"
+      ],
+      "avanca_quando": "O patrocinador assina o termo de abertura.",
+      "tecnicas_base": [],
+      "tecnicas_criterios": "remover",
+      "tecnicas_manter": [],
+      "focos": "remover",
+      "focos_manter": []
+    },
+    {
+      "id": "handover-sem-sistema",
+      "nome": "Mudança sem sistema envolvido",
+      "etapa": "HO",
+      "modo": "todas",
+      "condicoes": [
+        {
+          "tipo": "contexto",
+          "contexto": "sem_sistema"
+        }
+      ],
+      "intensidade": "Baixa",
+      "rotulo_percurso": "",
+      "selo": "",
+      "porque": "Baixa intensidade porque nenhum sistema foi informado: a mudança não depende de desenvolvimento, e o handover se resume a transferir o novo processo para a área responsável.",
+      "orientacao": "Documentar o novo processo, capacitar quem vai operá-lo e combinar com a área responsável a data em que ela assume a operação.",
+      "entrada": [],
+      "saida": [
+        "Novo processo documentado",
+        "Área responsável capacitada"
+      ],
+      "avanca_quando": "A área responsável assume o novo processo.",
+      "tecnicas_base": [
+        "Transferência do novo processo à área responsável (procedimentos e capacitação)"
+      ],
+      "tecnicas_criterios": "manter_algumas",
+      "tecnicas_manter": [
+        "Análise de integrações e normativa"
+      ],
+      "focos": "manter_algumas",
+      "focos_manter": [
+        "C10"
+      ]
+    }
+  ],
+  "tecnicas": [
+    {
+      "nome": "Matriz CSD (certezas, suposições e dúvidas)",
+      "etapa": "EX",
+      "criterio": "C1",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "nome": "Pesquisa exploratória",
+      "etapa": "EX",
+      "criterio": "C1",
+      "niveis": [
+        3
+      ]
+    },
+    {
+      "nome": "Árvore de problemas",
+      "etapa": "EX",
+      "criterio": "C1",
+      "niveis": [
+        3
+      ]
+    },
+    {
+      "nome": "Análise de causa raiz (5 porquês)",
+      "etapa": "EX",
+      "criterio": "C1",
+      "niveis": [
+        3
+      ]
+    },
+    {
+      "nome": "Pesquisa documental (desk research)",
+      "etapa": "EX",
+      "criterio": "C2",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "nome": "Análise de dados e registros existentes",
+      "etapa": "EX",
+      "criterio": "C2",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "nome": "Entrevistas em profundidade",
+      "etapa": "EX",
+      "criterio": "C2",
+      "niveis": [
+        3
+      ]
+    },
+    {
+      "nome": "Observação de campo / shadowing",
+      "etapa": "EX",
+      "criterio": "C2",
+      "niveis": [
+        3
+      ]
+    },
+    {
+      "nome": "Questionário (survey) com usuários",
+      "etapa": "EX",
+      "criterio": "C2",
+      "niveis": [
+        3
+      ]
+    },
+    {
+      "nome": "Oficina de escopo",
+      "etapa": "AL",
+      "criterio": "C3",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "nome": "Definição do desafio de design",
+      "etapa": "AL",
+      "criterio": "C3",
+      "niveis": [
+        3
+      ]
+    },
+    {
+      "nome": "Imersão no contexto do serviço",
+      "etapa": "EX",
+      "criterio": "C3",
+      "niveis": [
+        3
+      ]
+    },
+    {
+      "nome": "Análise de viabilidade das ideias",
+      "etapa": "ID",
+      "criterio": "C4",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "nome": "Teste de conceito",
+      "etapa": "PR",
+      "criterio": "C4",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "nome": "Protótipos de baixa fidelidade",
+      "etapa": "PR",
+      "criterio": "C4",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "nome": "Ideação estruturada (crazy 8s, brainwriting)",
+      "etapa": "ID",
+      "criterio": "C4",
+      "niveis": [
+        3
+      ]
+    },
+    {
+      "nome": "Testes iterativos com usuários",
+      "etapa": "PR",
+      "criterio": "C4",
+      "niveis": [
+        3
+      ]
+    },
+    {
+      "nome": "Mapa de stakeholders",
+      "etapa": "AL",
+      "criterio": "C5",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "nome": "Personas",
+      "etapa": "EX",
+      "criterio": "C5",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "nome": "Mapa de ecossistema do serviço",
+      "etapa": "AL",
+      "criterio": "C5",
+      "niveis": [
+        3
+      ]
+    },
+    {
+      "nome": "Personas por segmento de público",
+      "etapa": "EX",
+      "criterio": "C5",
+      "niveis": [
+        3
+      ]
+    },
+    {
+      "nome": "Oficinas de cocriação",
+      "etapa": "ID",
+      "criterio": "C5",
+      "niveis": [
+        3
+      ]
+    },
+    {
+      "nome": "Matriz poder × interesse",
+      "etapa": "AL",
+      "criterio": "C6",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "nome": "Oficinas mediadas e acordo de decisão",
+      "etapa": "AL",
+      "criterio": "C6",
+      "niveis": [
+        3
+      ]
+    },
+    {
+      "nome": "Priorização com critérios explícitos",
+      "etapa": "ID",
+      "criterio": "C6",
+      "niveis": [
+        3
+      ]
+    },
+    {
+      "nome": "Jornada do usuário no trecho afetado",
+      "etapa": "EX",
+      "criterio": "C7",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "nome": "Jornada completa atual (as-is)",
+      "etapa": "EX",
+      "criterio": "C7",
+      "niveis": [
+        3
+      ]
+    },
+    {
+      "nome": "Jornada futura (to-be)",
+      "etapa": "ID",
+      "criterio": "C7",
+      "niveis": [
+        3
+      ]
+    },
+    {
+      "nome": "Service blueprint to-be",
+      "etapa": "PR",
+      "criterio": "C7",
+      "niveis": [
+        3
+      ]
+    },
+    {
+      "nome": "Matriz de riscos",
+      "etapa": "PR",
+      "criterio": "C8",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "nome": "Monitoramento de riscos na operação",
+      "etapa": "AV",
+      "criterio": "C8",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "nome": "Protótipo de alta fidelidade",
+      "etapa": "PR",
+      "criterio": "C8",
+      "niveis": [
+        3
+      ]
+    },
+    {
+      "nome": "Piloto controlado com plano de reversão",
+      "etapa": "AV",
+      "criterio": "C8",
+      "niveis": [
+        3
+      ]
+    },
+    {
+      "nome": "Ciclos de melhoria programados",
+      "etapa": "AV",
+      "criterio": "C8",
+      "niveis": [
+        3
+      ]
+    },
+    {
+      "nome": "Plano de comunicação e capacitação",
+      "etapa": "AV",
+      "criterio": "C9",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "nome": "Testes com operadores do serviço",
+      "etapa": "PR",
+      "criterio": "C9",
+      "niveis": [
+        3
+      ]
+    },
+    {
+      "nome": "Estratégia de gestão da mudança",
+      "etapa": "AV",
+      "criterio": "C9",
+      "niveis": [
+        3
+      ]
+    },
+    {
+      "nome": "Mapa de sistemas e normas envolvidos",
+      "etapa": "HO",
+      "criterio": "C10",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "nome": "Rituais de acompanhamento com o time de desenvolvimento",
+      "etapa": "HO",
+      "criterio": "C10",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "nome": "Service blueprint com camada de bastidores (backstage)",
+      "etapa": "HO",
+      "criterio": "C10",
+      "niveis": [
+        3
+      ]
+    },
+    {
+      "nome": "Análise de integrações e normativa",
+      "etapa": "HO",
+      "criterio": "C10",
+      "niveis": [
+        3
+      ]
+    },
+    {
+      "nome": "Entregas por incrementos",
+      "etapa": "HO",
+      "criterio": "C10",
+      "niveis": [
+        3
+      ]
+    }
+  ],
+  "focos": [
+    {
+      "etapa": "AL",
+      "criterio": "C3",
+      "niveis": [
+        2,
+        3
+      ],
+      "texto": "Refinar o escopo, deixando explícito o que fica dentro e fora do projeto."
+    },
+    {
+      "etapa": "AL",
+      "criterio": "C5",
+      "niveis": [
+        2,
+        3
+      ],
+      "texto": "Identificar todos os públicos e instituições envolvidos e definir como cada um vai participar."
+    },
+    {
+      "etapa": "AL",
+      "criterio": "C6",
+      "niveis": [
+        2,
+        3
+      ],
+      "texto": "Tornar explícitos os interesses em conflito e combinar como as decisões serão tomadas."
+    },
+    {
+      "etapa": "EX",
+      "criterio": "C1",
+      "niveis": [
+        2,
+        3
+      ],
+      "texto": "Investigar as causas do problema, separando o que é certeza do que é suposição."
+    },
+    {
+      "etapa": "EX",
+      "criterio": "C2",
+      "niveis": [
+        2,
+        3
+      ],
+      "texto": "Levantar dados e ouvir usuários para dimensionar o problema."
+    },
+    {
+      "etapa": "EX",
+      "criterio": "C7",
+      "niveis": [
+        2,
+        3
+      ],
+      "texto": "Mapear a jornada atual nos pontos que a mudança vai alcançar."
+    },
+    {
+      "etapa": "ID",
+      "criterio": "C4",
+      "niveis": [
+        2,
+        3
+      ],
+      "texto": "Explorar mais de uma alternativa de solução antes de escolher."
+    },
+    {
+      "etapa": "ID",
+      "criterio": "C5",
+      "niveis": [
+        2,
+        3
+      ],
+      "texto": "Envolver os diferentes públicos na criação das alternativas."
+    },
+    {
+      "etapa": "ID",
+      "criterio": "C6",
+      "niveis": [
+        2,
+        3
+      ],
+      "texto": "Usar critérios de priorização explícitos, para que a escolha seja aceita pelas partes."
+    },
+    {
+      "etapa": "PR",
+      "criterio": "C4",
+      "niveis": [
+        2,
+        3
+      ],
+      "texto": "Verificar se a solução resolve, de fato, o problema que motivou a demanda."
+    },
+    {
+      "etapa": "PR",
+      "criterio": "C7",
+      "niveis": [
+        2,
+        3
+      ],
+      "texto": "Detalhar no blueprint como a jornada e os canais de atendimento vão mudar."
+    },
+    {
+      "etapa": "PR",
+      "criterio": "C8",
+      "niveis": [
+        2,
+        3
+      ],
+      "texto": "Reduzir o risco institucional testando em ambiente controlado antes da implantação."
+    },
+    {
+      "etapa": "PR",
+      "criterio": "C9",
+      "niveis": [
+        2,
+        3
+      ],
+      "texto": "Testar com os operadores do serviço, que precisarão mudar suas rotinas."
+    },
+    {
+      "etapa": "HO",
+      "criterio": "C10",
+      "niveis": [
+        2,
+        3
+      ],
+      "texto": "Resolver integrações e adequações normativas antes que bloqueiem o desenvolvimento."
+    },
+    {
+      "etapa": "HO",
+      "criterio": "C7",
+      "niveis": [
+        2,
+        3
+      ],
+      "texto": "Garantir que o desenvolvimento reflita a nova jornada em todos os canais afetados."
+    },
+    {
+      "etapa": "AV",
+      "criterio": "C8",
+      "niveis": [
+        2,
+        3
+      ],
+      "texto": "Monitorar os riscos institucionais durante a implantação."
+    },
+    {
+      "etapa": "AV",
+      "criterio": "C9",
+      "niveis": [
+        2,
+        3
+      ],
+      "texto": "Apoiar usuários e operadores na mudança de rotina."
+    }
+  ],
+  "condicoes_especiais": {
+    "T1": {
+      "acao": "Consultar o encarregado de dados (DPO); elaborar o Relatório de Impacto à Proteção de Dados (RIPD); usar dados fictícios ou minimizados nos protótipos.",
+      "etapa": "Exploração · Handover",
+      "respostas": [
+        "yes",
+        "partial",
+        "unknown"
+      ]
+    },
+    "T2": {
+      "acao": "Elaborar plano de contingência e realizar testes de disponibilidade antes do piloto.",
+      "etapa": "Handover · Avaliação",
+      "respostas": [
+        "yes",
+        "partial",
+        "unknown"
+      ]
+    },
+    "T3": {
+      "acao": "Realizar análise normativa com a área jurídica; incorporar as normas como restrições no blueprint.",
+      "etapa": "Alinhamento · Handover",
+      "respostas": [
+        "yes",
+        "partial",
+        "unknown"
+      ]
+    },
+    "T4": {
+      "acao": "Realizar avaliação de impacto algorítmico; prever revisão humana e canal de contestação das decisões.",
+      "etapa": "Ideação · Prototipação",
+      "respostas": [
+        "yes",
+        "partial",
+        "unknown"
+      ]
+    },
+    "T5": {
+      "acao": "Testar com pessoas com deficiência, idosos e usuários de baixa conectividade; verificar conformidade com o eMAG; manter canal alternativo não digital.",
+      "etapa": "Prototipação · Avaliação",
+      "respostas": [
+        "yes",
+        "partial",
+        "unknown"
+      ]
+    },
+    "T6": {
+      "acao": "Aplicar linguagem simples e testar a compreensão das mensagens de resultado e decisão.",
+      "etapa": "Prototipação · Avaliação",
+      "respostas": [
+        "yes",
+        "partial",
+        "unknown"
+      ]
+    },
+    "T7": {
+      "acao": "Usar fontes substitutas (atendentes, ouvidoria, dados secundários) e registrar as hipóteses não validadas como risco.",
+      "etapa": "Exploração",
+      "respostas": [
+        "yes",
+        "partial",
+        "unknown"
+      ]
+    },
+    "T8": {
+      "acao": "Formalizar termo de abertura com patrocinador nomeado e rito de decisão antes de sair do Alinhamento.",
+      "etapa": "Alinhamento",
+      "respostas": [
+        "yes",
+        "partial",
+        "unknown"
+      ]
+    }
+  },
+  "textos_resposta": {
+    "yes": "O grupo identificou esta condição na iniciativa.",
+    "partial": "O grupo identificou indícios desta condição.",
+    "unknown": "O grupo não soube avaliar. Tratar como presente até haver avaliação especializada.",
+    "no": ""
+  },
+  "riscos": [
+    {
+      "id": "risco-institucional",
+      "titulo": "Risco institucional elevado",
+      "modo": "todas",
+      "condicoes": [
+        {
+          "tipo": "criterio",
+          "criterio": "C8",
+          "niveis": [
+            3
+          ]
+        }
+      ],
+      "texto": "Uma falha pode trazer consequências institucionais, jurídicas ou de imagem. Implantar primeiro em piloto controlado, com plano de reversão, antes de ampliar."
+    },
+    {
+      "id": "risco-dependencias",
+      "titulo": "Dependências técnicas e normativas complexas",
+      "modo": "todas",
+      "condicoes": [
+        {
+          "tipo": "criterio",
+          "criterio": "C10",
+          "niveis": [
+            3
+          ]
+        }
+      ],
+      "texto": "Integrações e adequações normativas podem travar o desenvolvimento. Tratá-las como marcos do handover e acompanhá-las com o time de desenvolvimento."
+    },
+    {
+      "id": "risco-conflito",
+      "titulo": "Conflito de interesses entre os atores",
+      "modo": "todas",
+      "condicoes": [
+        {
+          "tipo": "criterio",
+          "criterio": "C6",
+          "niveis": [
+            3
+          ]
+        }
+      ],
+      "texto": "Divergências entre as áreas podem paralisar as decisões. Registrar no alinhamento quem decide e como as divergências serão resolvidas."
+    },
+    {
+      "id": "risco-resistencia",
+      "titulo": "Resistência à mudança",
+      "modo": "todas",
+      "condicoes": [
+        {
+          "tipo": "criterio",
+          "criterio": "C9",
+          "niveis": [
+            3
+          ]
+        }
+      ],
+      "texto": "A solução muda hábitos de usuários e operadores. Envolver os operadores desde os testes e preparar uma estratégia de gestão da mudança."
+    },
+    {
+      "id": "risco-paralelo",
+      "titulo": "Desenvolvimento à frente da validação",
+      "modo": "todas",
+      "condicoes": [
+        {
+          "tipo": "contexto",
+          "contexto": "paralelo"
+        }
+      ],
+      "texto": "Como prototipação e handover correm juntos, o desenvolvimento pode construir algo ainda não testado. Entregar ao time apenas o que já foi validado, por incrementos."
+    }
+  ],
+  "risco_divergencia": {
+    "ativo": true,
+    "titulo": "Grupo dividido sobre {criterio}",
+    "texto": "Na oficina houve respostas opostas sobre este ponto. Revisar a decisão ao final da primeira etapa após o alinhamento, à luz das evidências levantadas."
+  },
+  "envolvimento": [
+    {
+      "id": "env-c5-baixo",
+      "modo": "todas",
+      "condicoes": [
+        {
+          "tipo": "criterio",
+          "criterio": "C5",
+          "niveis": [
+            1
+          ]
+        }
+      ],
+      "texto": "Consulta pontual aos usuários e à área responsável."
+    },
+    {
+      "id": "env-c5-medio",
+      "modo": "todas",
+      "condicoes": [
+        {
+          "tipo": "criterio",
+          "criterio": "C5",
+          "niveis": [
+            2
+          ]
+        }
+      ],
+      "texto": "Entrevistas e validações com cada grupo de usuários e áreas envolvidas."
+    },
+    {
+      "id": "env-c5-alto",
+      "modo": "todas",
+      "condicoes": [
+        {
+          "tipo": "criterio",
+          "criterio": "C5",
+          "niveis": [
+            3
+          ]
+        }
+      ],
+      "texto": "Cocriação contínua com os diferentes públicos ao longo de todas as etapas."
+    },
+    {
+      "id": "env-c6-medio",
+      "modo": "todas",
+      "condicoes": [
+        {
+          "tipo": "criterio",
+          "criterio": "C6",
+          "niveis": [
+            2
+          ]
+        }
+      ],
+      "texto": "Prever rodadas de alinhamento entre as áreas antes das decisões."
+    },
+    {
+      "id": "env-c6-alto",
+      "modo": "todas",
+      "condicoes": [
+        {
+          "tipo": "criterio",
+          "criterio": "C6",
+          "niveis": [
+            3
+          ]
+        }
+      ],
+      "texto": "Conduzir as decisões em oficinas mediadas, com acordo de decisão registrado."
+    }
+  ]
+}

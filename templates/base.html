@@ -13,6 +13,7 @@
     <a class="brand" href="{{ url_for('painel') }}">Bússola<small>Diagnóstico de Serviços</small></a>
     <nav>
       <a href="{{ url_for('painel') }}">Oficinas</a>
+      <a href="{{ url_for('regras_ver') }}">Regras do plano</a>
       {% if exigir_login %}<form method="post" action="{{ url_for('logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="linkbtn">Sair</button></form>{% endif %}
     </nav>
   {% else %}
