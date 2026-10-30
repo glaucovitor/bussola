@@ -296,3 +296,56 @@ def test_plano_finalizado_preserva_versao_das_regras(app_ctx):
     c.post(f"/oficinas/{oid}/plano/atualizar-regras", data={"csrf_token": tk})
     assert "NOVA ORIENTAÇÃO" in c.get(f"/oficinas/{oid}/plano").text
     assert "regras da versão 1" in antes
+
+
+def test_mapa_do_diagnostico():
+    import motor
+    R = _R()
+    grupo = dict(C1=2, C2=2, C3=2, C4=3, C5=3, C6=1, C7=3, C8=2, C9=2, C10=3)
+    parts = [("Ana", {**grupo, "C1": 3}), ("Bruno", {**grupo, "C1": 1, "C6": 2}), ("Eva", grupo), ("Fábio", grupo)]
+    m = motor.montar_mapa(R, grupo, parts)
+    assert (m["grupo"]["x"], m["grupo"]["y"]) == (60.0, 71.4) and m["quadrante_nome"] == "Transformação"
+    assert "difícil" not in str(m) and m["rotulo_menor"] == "menor"
+    iguais = [p for p in m["participantes"] if p["com_grupo"]]
+    assert iguais and iguais[0]["nomes"] == ["Eva", "Fábio"]                 # pontos coincidentes agrupados
+    assert "2 quadrantes" in m["leitura"]
+    simples = {f"C{i}": 1 for i in range(1, 11)}
+    assert motor.montar_mapa(R, simples)["quadrante_nome"] == "Execução direta"
+    # editar pesos e nomes muda o mapa; desativar remove
+    R["mapa"]["eixo_x"]["pesos"] = {c: 0 for c in R["mapa"]["eixo_x"]["pesos"]} | {"C4": 1}
+    R["mapa"]["quadrantes"]["superior_direito"]["nome"] = "Grande transformação"
+    m = motor.montar_mapa(R, grupo)
+    assert m["grupo"]["x"] == 100.0 and m["quadrante_nome"] == "Grande transformação"
+    R["mapa"]["eixo_y"]["pesos"] = {c: 0 for c in R["mapa"]["eixo_y"]["pesos"]}
+    assert any("eixo vertical" in e for e in motor.validar(R))
+    R["mapa"]["ativo"] = False
+    assert motor.montar_mapa(R, grupo) is None and not any("eixo" in e for e in motor.validar(R))
+
+
+def test_regras_antigas_sem_mapa_recebem_o_padrao():
+    import motor
+    R = motor.regras_padrao(); del R["mapa"]
+    R = motor.normalizar(R)
+    assert R["mapa"]["ativo"] and not motor.validar(R)
+
+
+def test_migracao_textos_do_mapa(monkeypatch):
+    """Uma versão ativa com os textos antigos do mapa recebe uma nova versão com os textos suavizados."""
+    import json, sqlite3
+    pasta = tempfile.mkdtemp()
+    monkeypatch.setenv("BUSSOLA_INSTANCE", pasta)
+    for mod in ("app", "rules", "motor"):
+        sys.modules.pop(mod, None)
+    import app as modulo
+    con = sqlite3.connect(modulo.app.config["DATABASE"])
+    R = json.loads(con.execute("SELECT conteudo FROM regras_versoes").fetchone()[0])
+    R["mapa"]["eixo_y"]["nome"] = "Complexidade de implantação"
+    R["mapa"]["quadrantes"]["superior_direito"] = {"nome": "Transformação", "descricao": "Muito a descobrir e difícil de implantar"}
+    con.execute("INSERT INTO regras_versoes (conteudo, nota, criado_em) VALUES (?,?,?)", (json.dumps(R), "antiga", "2026-10-30"))
+    con.commit(); con.close()
+    modulo.init_db()
+    con = sqlite3.connect(modulo.app.config["DATABASE"])
+    ultima = con.execute("SELECT conteudo, nota FROM regras_versoes ORDER BY id DESC LIMIT 1").fetchone()
+    assert ultima[1] == "Textos do mapa do diagnóstico suavizados" and "difícil" not in ultima[0]
+    modulo.init_db()   # rodar de novo não cria outra versão
+    assert con.execute("SELECT COUNT(*) FROM regras_versoes").fetchone()[0] == 3

@@ -1,0 +1,45 @@
+{# Mapa do diagnóstico: plano cartesiano em SVG, preto e branco #}
+{% set m = plano['mapa'] %}{% set d = m['desenho'] %}
+{% set Q = m['quadrantes'] %}
+<section class="pm-sec pm-mapa">
+  <h2>{{ m['titulo'] }}</h2>
+  <p class="pm-lead" style="margin-top:0"><b>{{ m['texto'] }}</b>{% if m['leitura'] %} {{ m['leitura'] }}{% endif %}</p>
+  <div class="pm-mapa-wrap"><svg viewBox="0 0 740 600" role="img" aria-label="{{ m['titulo'] }}: {{ m['texto'] }}" class="pm-mapa-svg">
+    <rect x="0" y="0" width="740" height="600" fill="#fff"/>
+    {# área e linhas centrais #}
+    <rect x="{{ d['L'] }}" y="{{ d['T'] }}" width="{{ d['W'] }}" height="{{ d['H'] }}" fill="none" stroke="#000" stroke-width="1.5"/>
+    <line x1="{{ d['meio_x'] }}" y1="{{ d['T'] }}" x2="{{ d['meio_x'] }}" y2="{{ d['T'] + d['H'] }}" stroke="#000" stroke-width="1.2"/>
+    <line x1="{{ d['L'] }}" y1="{{ d['meio_y'] }}" x2="{{ d['L'] + d['W'] }}" y2="{{ d['meio_y'] }}" stroke="#000" stroke-width="1.2"/>
+    {# quadrantes #}
+    {% set qx_e, qx_d = d['L'] + 14, d['L'] + d['W'] - 14 %}
+    {% for chave, x, embaixo, anc in (('superior_esquerdo', qx_e, false, 'start'), ('superior_direito', qx_d, false, 'end'),
+                                      ('inferior_esquerdo', qx_e, true, 'start'), ('inferior_direito', qx_d, true, 'end')) %}
+      {% set atual = chave == m['quadrante'] %}{% set linhas = m['quadrantes_linhas'][chave] %}
+      {% set y = (d['T'] + d['H'] - 14 - 17 * linhas|length) if embaixo else (d['T'] + 26) %}
+      <text x="{{ x }}" y="{{ y }}" text-anchor="{{ anc }}" font-size="16" font-weight="700" fill="{{ '#000' if atual else '#666' }}" letter-spacing=".5">{{ Q[chave]['nome']|upper }}</text>
+      {% for l in linhas %}<text x="{{ x }}" y="{{ y + 19 + 17 * loop.index0 }}" text-anchor="{{ anc }}" font-size="13" fill="{{ '#333' if atual else '#777' }}">{{ l }}</text>{% endfor %}
+    {% endfor %}
+    {# eixos #}
+    <text x="{{ d['L'] }}" y="{{ d['T'] + d['H'] + 22 }}" font-size="14" fill="#333">{{ m['rotulo_menor'] }}</text>
+    <text x="{{ d['L'] + d['W'] }}" y="{{ d['T'] + d['H'] + 22 }}" font-size="14" fill="#333" text-anchor="end">{{ m['rotulo_maior'] }}</text>
+    <text x="{{ d['meio_x'] }}" y="{{ d['T'] + d['H'] + 50 }}" font-size="17" text-anchor="middle" fill="#000">{{ m['eixo_x'] }} →</text>
+    <text x="{{ d['L'] - 10 }}" y="{{ d['T'] + d['H'] }}" font-size="14" fill="#333" text-anchor="end">{{ m['rotulo_menor'] }}</text>
+    <text x="{{ d['L'] - 10 }}" y="{{ d['T'] + 12 }}" font-size="14" fill="#333" text-anchor="end">{{ m['rotulo_maior'] }}</text>
+    <text transform="translate({{ d['L'] - 52 }},{{ d['meio_y'] }}) rotate(-90)" font-size="17" text-anchor="middle" fill="#000">{{ m['eixo_y'] }} →</text>
+    {# participantes #}
+    {% for p in d['participantes'] %}
+      <circle cx="{{ p['cx'] }}" cy="{{ p['cy'] }}" r="{{ 16 if p['com_grupo'] else 9 }}" fill="#fff" stroke="#000" stroke-width="2"/>
+      <text x="{{ p['rotulo']['x'] }}" y="{{ p['rotulo']['y'] }}" text-anchor="{{ p['rotulo']['ancora'] }}" font-size="13" fill="#000">{{ p['nome'] }}</text>
+    {% endfor %}
+    {# decisão do grupo #}
+    {% set g = d['grupo'] %}
+    <polygon points="{{ g['cx'] }},{{ g['cy'] - 13 }} {{ g['cx'] + 13 }},{{ g['cy'] }} {{ g['cx'] }},{{ g['cy'] + 13 }} {{ g['cx'] - 13 }},{{ g['cy'] }}" fill="#000"/>
+    <text x="{{ g['rotulo']['x'] }}" y="{{ g['rotulo']['y'] }}" text-anchor="{{ g['rotulo']['ancora'] }}" font-size="15" font-weight="700" fill="#000" stroke="#fff" stroke-width="4" paint-order="stroke">Decisão do grupo</text>
+    {# legenda #}
+    <g transform="translate({{ d['meio_x'] - 150 }},{{ d['T'] + d['H'] + 82 }})">
+      <polygon points="0,-9 9,0 0,9 -9,0" fill="#000"/><text x="16" y="5" font-size="14">Decisão do grupo</text>
+      {% if d['participantes'] %}<circle cx="190" cy="0" r="8" fill="#fff" stroke="#000" stroke-width="2"/><text x="206" y="5" font-size="14">Participante</text>{% endif %}
+    </g>
+  </svg></div>
+  <p class="small muted">Cada eixo é a média ponderada dos critérios do diagnóstico, do menor ao maior grau. O mapa resume o diagnóstico; o percurso abaixo segue as regras de cada critério.</p>
+</section>

@@ -63,6 +63,17 @@ def normalizar(R):
             ex.setdefault(k, v)
     for r in R["ponto_entrada"]["regras"]:
         r.setdefault("texto_peso", "")
+    for k, v in base["mapa"].items():
+        R["mapa"].setdefault(k, copy.deepcopy(v))
+    for k in ("rotulo_menor", "rotulo_maior"):
+        if not str(R["mapa"].get(k) or "").strip():
+            R["mapa"][k] = base["mapa"][k]
+    for q, v in base["mapa"]["quadrantes"].items():
+        R["mapa"]["quadrantes"].setdefault(q, copy.deepcopy(v))
+    for eixo in ("eixo_x", "eixo_y"):
+        R["mapa"][eixo].setdefault("pesos", {})
+        for cod in CODIGOS_C:
+            R["mapa"][eixo]["pesos"].setdefault(cod, 0)
     return R
 
 
@@ -146,6 +157,24 @@ def validar(R):
     par = R.get("paralelo") or {}
     if par.get("ativo") and (par.get("de") not in etapas or par.get("para") not in etapas):
         erros.append("Etapas em paralelo: escolha etapas existentes.")
+    mapa = R.get("mapa") or {}
+    if mapa.get("ativo"):
+        for eixo, nome in (("eixo_x", "horizontal"), ("eixo_y", "vertical")):
+            pesos = (mapa.get(eixo) or {}).get("pesos") or {}
+            try:
+                valores = [float(v) for v in pesos.values()]
+            except (TypeError, ValueError):
+                erros.append(f"Mapa do diagnóstico: pesos inválidos no eixo {nome}.")
+                continue
+            if any(v < 0 for v in valores):
+                erros.append(f"Mapa do diagnóstico: os pesos do eixo {nome} não podem ser negativos.")
+            if not any(v > 0 for v in valores):
+                erros.append(f"Mapa do diagnóstico: o eixo {nome} precisa de pelo menos um critério com peso.")
+            if any(c not in CODIGOS_C for c in pesos):
+                erros.append(f"Mapa do diagnóstico: critério inexistente no eixo {nome}.")
+        for q in QUADRANTES:
+            if not str(((mapa.get("quadrantes") or {}).get(q) or {}).get("nome", "")).strip():
+                erros.append(f"Mapa do diagnóstico: dê um nome ao quadrante {NOME_QUADRANTE_POSICAO[q]}.")
     try:
         limiar = float(R["consenso"]["limiar"])
         if not 0.5 <= limiar <= 1:
@@ -570,7 +599,151 @@ def gerar_plano(R, contexto, niveis, condicoes, registro=None):
 # ---------------------------------------------------------------------------
 def simular(R, niveis, condicoes, tem_sistema=True):
     contexto = {"sistemas_envolvidos": "Sistema" if tem_sistema else ""}
-    return gerar_plano(R, contexto, niveis, condicoes)
+    plano = gerar_plano(R, contexto, niveis, condicoes)
+    plano["mapa"] = montar_mapa(R, niveis)
+    return plano
 
 
 MARCADORES = re.compile(r"\{(\w+)\}")
+
+
+# ---------------------------------------------------------------------------
+# Mapa do diagnóstico (plano cartesiano)
+# ---------------------------------------------------------------------------
+QUADRANTES = ["superior_esquerdo", "superior_direito", "inferior_esquerdo", "inferior_direito"]
+NOME_QUADRANTE_POSICAO = {"superior_esquerdo": "superior esquerdo", "superior_direito": "superior direito",
+                          "inferior_esquerdo": "inferior esquerdo", "inferior_direito": "inferior direito"}
+
+
+def posicao_eixo(pesos, niveis):
+    """Média ponderada dos níveis (1 a 3) convertida para 0 a 100. None se não houver dados."""
+    soma = total = 0.0
+    for cod, peso in (pesos or {}).items():
+        try:
+            peso = float(peso)
+        except (TypeError, ValueError):
+            continue
+        nivel = niveis.get(cod)
+        if peso > 0 and nivel in (1, 2, 3):
+            soma += nivel * peso
+            total += peso
+    if not total:
+        return None
+    return round((soma / total - 1) / 2 * 100, 1)
+
+
+def quadrante_de(x, y):
+    """Os pontos sobre uma linha central contam como o lado mais alto do eixo."""
+    vertical = "superior" if y >= 50 else "inferior"
+    horizontal = "direito" if x >= 50 else "esquerdo"
+    return f"{vertical}_{horizontal}"
+
+
+def montar_mapa(R, niveis_grupo, participantes=None):
+    """Posição da decisão do grupo e de cada participante no plano cartesiano.
+
+    participantes: lista de (nome, {"C1": 1..3, ...}). Pontos na mesma posição são agrupados.
+    """
+    cfg = R.get("mapa") or {}
+    if not cfg.get("ativo"):
+        return None
+    ex, ey = cfg["eixo_x"], cfg["eixo_y"]
+    gx, gy = posicao_eixo(ex["pesos"], niveis_grupo), posicao_eixo(ey["pesos"], niveis_grupo)
+    if gx is None or gy is None:
+        return None
+    q = quadrante_de(gx, gy)
+    quad = cfg["quadrantes"][q]
+    texto = preencher(cfg.get("texto", ""), quadrante=quad["nome"],
+                      descricao=(quad["descricao"][:1].lower() + quad["descricao"][1:]) if quad["descricao"] else "",
+                      x=round(gx), y=round(gy))
+
+    pontos, por_quadrante = {}, {}
+    if cfg.get("mostrar_participantes"):
+        for nome, respostas in participantes or []:
+            niv = {k: int(v) for k, v in respostas.items() if str(v) in ("1", "2", "3")}
+            px, py = posicao_eixo(ex["pesos"], niv), posicao_eixo(ey["pesos"], niv)
+            if px is None or py is None:
+                continue
+            pontos.setdefault((px, py), []).append(nome)
+            por_quadrante.setdefault(quadrante_de(px, py), []).append(nome)
+    lista = [{"x": x, "y": y, "nomes": nomes, "com_grupo": (x, y) == (gx, gy)}
+             for (x, y), nomes in sorted(pontos.items(), key=lambda kv: (-kv[0][1], kv[0][0]))]
+
+    leitura = ""
+    if por_quadrante:
+        if len(por_quadrante) == 1:
+            leitura = "Todos os participantes ficaram no mesmo quadrante, o que indica uma visão comum sobre a iniciativa."
+        else:
+            partes = [f"{cfg['quadrantes'][k]['nome']} ({juntar(v)})" for k, v in
+                      sorted(por_quadrante.items(), key=lambda kv: -len(kv[1]))]
+            leitura = (f"As respostas individuais se distribuíram por {len(por_quadrante)} quadrantes: "
+                       + "; ".join(partes) + ". Vale observar onde as visões se afastam da decisão do grupo.")
+
+    return {"titulo": cfg.get("titulo") or "Mapa do diagnóstico",
+            "eixo_x": ex["nome"], "eixo_y": ey["nome"],
+            "rotulo_menor": cfg.get("rotulo_menor") or "menor", "rotulo_maior": cfg.get("rotulo_maior") or "maior",
+            "quadrantes_linhas": {k: quebrar(v.get("descricao", ""), 40) for k, v in cfg["quadrantes"].items()},
+            "grupo": {"x": gx, "y": gy}, "quadrante": q, "quadrante_nome": quad["nome"],
+            "quadrantes": cfg["quadrantes"], "participantes": lista,
+            "texto": texto, "leitura": leitura, "desenho": desenhar_mapa(cfg, gx, gy, lista)}
+
+
+def quebrar(texto, largura):
+    """Divide o texto em até duas linhas para caber no canto do quadrante."""
+    import textwrap
+    linhas = textwrap.wrap(str(texto or ""), largura)
+    if len(linhas) > 2:
+        linhas = [linhas[0], " ".join(linhas[1:])]
+    return linhas
+
+
+def desenhar_mapa(cfg, gx, gy, participantes):
+    """Coordenadas do SVG: área do gráfico, pontos e rótulos posicionados sem sobreposição."""
+    L, T, Wd, Hd = 96, 30, 600, 470          # área do gráfico dentro de um viewBox 0 0 740 600
+    X = lambda v: L + v / 100 * Wd
+    Y = lambda v: T + Hd - v / 100 * Hd
+    ocupados = []
+
+    def livre(x0, y0, x1, y1):
+        return all(x1 < a or x0 > c or y1 < b or y0 > d for a, b, c, d in ocupados)
+
+    def rotular(cx, cy, texto, largura_char, altura, raio):
+        larg = len(texto) * largura_char
+        tentativas = [(cx + raio + 6, cy + altura / 3, "start"), (cx - raio - 6, cy + altura / 3, "end"),
+                      (cx + raio + 4, cy - raio - 4, "start"), (cx + raio + 4, cy + raio + altura, "start"),
+                      (cx - raio - 4, cy - raio - 4, "end"), (cx - raio - 4, cy + raio + altura, "end")]
+        for tx, ty, anc in tentativas:
+            x0 = tx if anc == "start" else tx - larg
+            caixa = (x0 - 2, ty - altura, x0 + larg + 2, ty + 3)
+            if caixa[0] >= L + 2 and caixa[2] <= L + Wd - 2 and caixa[1] >= T + 2 and caixa[3] <= T + Hd - 2 and livre(*caixa):
+                ocupados.append(caixa)
+                return {"x": round(tx, 1), "y": round(ty, 1), "ancora": anc}
+        tx, ty, anc = tentativas[0]
+        ocupados.append((tx, ty - altura, tx + larg, ty + 3))
+        return {"x": round(tx, 1), "y": round(ty, 1), "ancora": anc}
+
+    # áreas dos textos dos quadrantes (cantos)
+    for x0, y0, x1, y1 in ((L + 8, T + 8, L + 285, T + 74), (L + Wd - 285, T + 8, L + Wd - 8, T + 74),
+                           (L + 8, T + Hd - 74, L + 285, T + Hd - 8), (L + Wd - 285, T + Hd - 74, L + Wd - 8, T + Hd - 8)):
+        ocupados.append((x0, y0, x1, y1))
+    # marcadores
+    gpx, gpy = X(gx), Y(gy)
+    anel = any(p["com_grupo"] for p in participantes)       # participante na mesma posição do grupo
+    raio_grupo = 19 if anel else 14
+    ocupados.append((gpx - raio_grupo, gpy - raio_grupo, gpx + raio_grupo, gpy + raio_grupo))
+    pts = []
+    for p in participantes:
+        px, py = X(p["x"]), Y(p["y"])
+        if not p["com_grupo"]:
+            ocupados.append((px - 10, py - 10, px + 10, py + 10))
+        pts.append([p, px, py])
+    rot_grupo = rotular(gpx, gpy, "Decisão do grupo", 8.6, 15, raio_grupo)
+    saida = []
+    for p, px, py in pts:
+        nome = ", ".join(p["nomes"])
+        if p["com_grupo"]:
+            nome += " (igual ao grupo)"
+        saida.append({"cx": round(px, 1), "cy": round(py, 1), "nome": nome, "com_grupo": p["com_grupo"],
+                      "rotulo": rotular(px, py, nome, 7.4, 13, raio_grupo if p["com_grupo"] else 11)})
+    return {"L": L, "T": T, "W": Wd, "H": Hd, "meio_x": L + Wd / 2, "meio_y": T + Hd / 2,
+            "grupo": {"cx": round(gpx, 1), "cy": round(gpy, 1), "rotulo": rot_grupo}, "participantes": saida}

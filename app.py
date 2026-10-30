@@ -122,6 +122,30 @@ def init_db():
         con.execute("INSERT INTO regras_versoes (conteudo, nota, criado_em) VALUES (?,?,?)",
                     (json.dumps(motor.regras_padrao(), ensure_ascii=False), "Regras padrão do sistema",
                      datetime.now().isoformat(timespec="seconds")))
+    # Textos do mapa suavizados: se a versão ativa ainda usa os textos antigos, cria uma nova versão
+    antigos = {("eixo_x", "nome"): "Incerteza sobre o problema e a solução",
+               ("eixo_y", "nome"): "Complexidade de implantação",
+               ("quadrantes", "superior_esquerdo"): ("Implantação cuidadosa", "Problema conhecido, implantação difícil"),
+               ("quadrantes", "superior_direito"): ("Transformação", "Muito a descobrir e difícil de implantar"),
+               ("quadrantes", "inferior_esquerdo"): ("Execução direta", "Problema conhecido, implantação simples"),
+               ("quadrantes", "inferior_direito"): ("Exploração", "Muito a descobrir, implantação simples")}
+    ativa = con.execute("SELECT conteudo FROM regras_versoes ORDER BY id DESC LIMIT 1").fetchone()
+    regras = json.loads(ativa[0])
+    mapa, novo = regras.get("mapa"), motor.regras_padrao()["mapa"]
+    if mapa:
+        mudou = False
+        for (grupo, chave), velho in antigos.items():
+            if grupo == "quadrantes":
+                q = mapa.get("quadrantes", {}).get(chave, {})
+                if (q.get("nome"), q.get("descricao")) == velho:
+                    mapa["quadrantes"][chave] = dict(novo["quadrantes"][chave]); mudou = True
+            elif mapa.get(grupo, {}).get(chave) == velho:
+                mapa[grupo][chave] = novo[grupo][chave]; mudou = True
+        if mudou:
+            mapa.setdefault("rotulo_menor", novo["rotulo_menor"]); mapa.setdefault("rotulo_maior", novo["rotulo_maior"])
+            con.execute("INSERT INTO regras_versoes (conteudo, nota, criado_em) VALUES (?,?,?)",
+                        (json.dumps(regras, ensure_ascii=False), "Textos do mapa do diagnóstico suavizados",
+                         datetime.now().isoformat(timespec="seconds")))
     # Planos finalizados antes do versionamento ficam presos à primeira versão
     primeira = con.execute("SELECT MIN(id) FROM regras_versoes").fetchone()[0]
     con.execute("UPDATE oficinas SET regras_versao_id = ? WHERE finalizada_em IS NOT NULL AND regras_versao_id IS NULL",
@@ -540,7 +564,9 @@ def montar_plano(of):
     if faltando:
         return None, faltando, registro, enviados, versao, R
     ctx = carregar(of["contexto_json"])
-    return motor.gerar_plano(R, ctx, niveis, condicoes, registro), [], registro, enviados, versao, R
+    plano = motor.gerar_plano(R, ctx, niveis, condicoes, registro)
+    plano["mapa"] = motor.montar_mapa(R, niveis, [(e["nome"], carregar(e["respostas_json"])) for e in enviados])
+    return plano, [], registro, enviados, versao, R
 
 
 @app.route("/oficinas/<int:oficina_id>/plano")

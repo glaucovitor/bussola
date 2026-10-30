@@ -96,6 +96,9 @@
   {% endif %}
 
 
+  <!-- Mapa do diagnóstico -->
+  {% if plano.get('mapa') %}{% include "_mapa.html" %}{% endif %}
+
   <!-- Percurso visual -->
   <section class="pm-sec">
     <h2>Percurso</h2>

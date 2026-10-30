@@ -62,7 +62,7 @@
     <a href="#como">Como o plano é gerado</a><a href="#entrada">Ponto de entrada</a><a href="#etapas">Etapas</a>
     <a href="#intensidade">Intensidade</a><a href="#excecoes">Exceções</a><a href="#tecnicas">Técnicas</a><a href="#focos">Focos</a>
     <a href="#criterios">Critérios</a><a href="#condicoes">Condições especiais</a><a href="#riscos">Riscos</a>
-    <a href="#envolvimento">Envolvimento</a><a href="#consenso">Consenso</a>
+    <a href="#envolvimento">Envolvimento</a><a href="#mapa">Mapa</a><a href="#consenso">Consenso</a>
   </nav>
 
   <section id="como" class="rg-sec">
@@ -202,6 +202,27 @@
     <h2>Envolvimento dos atores</h2>
     <p class="small muted">Os textos das regras verdadeiras são juntados, nesta ordem.</p>
     <table><tbody>{% for r in R['envolvimento'] %}<tr><td class="small" style="width:40%">{{ cond(r['modo'], r['condicoes']) }}</td><td class="small">{{ r['texto'] }}</td></tr>{% endfor %}</tbody></table>
+  </section>
+
+  <section id="mapa" class="rg-sec">
+    <h2>Mapa do diagnóstico</h2>
+    {% set M = R['mapa'] %}
+    {% if M['ativo'] %}
+    <p class="small">Plano cartesiano mostrado após os pontos de atenção{% if M['mostrar_participantes'] %}, com a decisão do grupo e a posição de cada participante{% else %}, apenas com a decisão do grupo{% endif %}. Cada eixo é a média ponderada dos níveis dos critérios, de 0 (situação mais simples) a 100 (mais complexa); a linha do meio fica em 50.</p>
+    <div class="rg-grid3" style="grid-template-columns:repeat(2,minmax(0,1fr))">
+      {% for k, nome in (('eixo_x', 'Eixo horizontal'), ('eixo_y', 'Eixo vertical')) %}
+      <div><div class="rg-label">{{ nome }}</div><b>{{ M[k]['nome'] }}</b>
+        <ul class="rg-ul">{% for cod, peso in M[k]['pesos'].items() if peso|float > 0 %}<li>{{ rules.CRITERIOS_POR_CODIGO[cod]['titulo'] }} — peso {{ peso|int if peso|float == peso|int else peso }}</li>{% endfor %}</ul></div>
+      {% endfor %}
+    </div>
+    <table style="margin-top:8px"><tbody>
+      <tr><td><b>{{ M['quadrantes']['superior_esquerdo']['nome'] }}</b><div class="small muted">{{ M['quadrantes']['superior_esquerdo']['descricao'] }}</div></td>
+          <td><b>{{ M['quadrantes']['superior_direito']['nome'] }}</b><div class="small muted">{{ M['quadrantes']['superior_direito']['descricao'] }}</div></td></tr>
+      <tr><td><b>{{ M['quadrantes']['inferior_esquerdo']['nome'] }}</b><div class="small muted">{{ M['quadrantes']['inferior_esquerdo']['descricao'] }}</div></td>
+          <td><b>{{ M['quadrantes']['inferior_direito']['nome'] }}</b><div class="small muted">{{ M['quadrantes']['inferior_direito']['descricao'] }}</div></td></tr>
+    </tbody></table>
+    <p class="small"><b>Pontas dos eixos:</b> {{ M['rotulo_menor'] }} / {{ M['rotulo_maior'] }}<br><b>Frase de leitura:</b> “{{ M['texto'] }}”</p>
+    {% else %}<p class="muted">O mapa está desativado.</p>{% endif %}
   </section>
 
   <section id="consenso" class="rg-sec">

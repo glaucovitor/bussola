@@ -23,6 +23,10 @@ A **sugestão** é a alternativa mais votada; em empate, prevalece a mais precav
 
 O limiar de consenso pode ser ajustado no editor de regras (aba *Consenso e paralelo*).
 
+## Mapa do diagnóstico
+
+Logo após os pontos de atenção, o plano mostra um plano cartesiano que resume o diagnóstico em dois eixos. O eixo horizontal mostra **o quanto ainda precisa ser descoberto** e o vertical, a **necessidade de coordenação para implantar**. Cada eixo é a média ponderada dos níveis dos critérios, de 0 (menor) a 100 (maior). O losango preto é a decisão consolidada do grupo, e os círculos são os participantes; quem respondeu igual fica agrupado num mesmo ponto. Uma frase diz em que quadrante o grupo ficou e se as visões individuais se espalharam por outros quadrantes. O mapa é só um resumo visual e não altera o percurso. Eixos, pesos e quadrantes podem ser ajustados no editor de regras.
+
 ## Regras do plano (editáveis)
 
 Tudo o que transforma o diagnóstico em plano fica num **conjunto de regras editável pelo próprio sistema**, no menu **Regras do plano**:
@@ -33,6 +37,7 @@ Tudo o que transforma o diagnóstico em plano fica num **conjunto de regras edit
 - **Exceções:** situações que mudam uma etapa, como o alinhamento feito na própria oficina ou a mudança sem sistema envolvido.
 - **Técnicas e focos:** em que etapa aparecem e em que nível do critério.
 - **Critérios:** peso dobrado, rótulos e frases de cada nível.
+- **Mapa do diagnóstico:** eixos, peso de cada critério em cada eixo, nomes e descrições dos quadrantes, frase de leitura e exibição dos participantes.
 - **Condições especiais, riscos, envolvimento dos atores, limiar de consenso e etapas em paralelo.**
 
 As condições das regras são montadas com um construtor visual. Elas podem usar um critério (por exemplo, "Clareza do problema está em Indefinido"), uma condição especial (por exemplo, "Engajamento e governança respondida como Não") ou um contexto ("nenhum sistema envolvido", "etapas em paralelo"). Os textos aceitam marcadores, como `{motivos}`, que o sistema preenche com a descrição do diagnóstico.

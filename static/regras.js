@@ -225,6 +225,28 @@
         <button type="button" class="sec" data-acao="novo-envolvimento">+ nova regra de envolvimento</button>`;
     },
 
+    mapa() {
+      const M = R.mapa;
+      const eixo = (k, nome) => `<div class="ed-card"><div class="ed-card-head"><b>Eixo ${nome}</b></div>
+        ${texto('Nome do eixo', `mapa.${k}.nome`)}
+        <label>Peso de cada critério</label>
+        <div class="ed-hint">A posição no eixo é a média ponderada dos níveis desses critérios. Peso 0 = o critério não entra no eixo.</div>
+        <table class="ed-table ed-pesos"><tbody>${META.criterios.map(c => `<tr><td>${esc(c.titulo)}</td>
+          <td><input type="number" min="0" max="10" step="1" data-path="mapa.${k}.pesos.${c.codigo}" data-kind="num" value="${esc(M[k].pesos[c.codigo] ?? 0)}" aria-label="Peso de ${esc(c.titulo)}"></td></tr>`).join('')}</tbody></table></div>`;
+      const quad = (k, nome) => `<div><b class="small">${nome}</b>${texto('Nome', `mapa.quadrantes.${k}.nome`)}${texto('Descrição', `mapa.quadrantes.${k}.descricao`)}</div>`;
+      return `<h2>Mapa do diagnóstico</h2>
+        <p class="ed-intro">Plano cartesiano mostrado no plano, logo após os pontos de atenção. Cada eixo é a média ponderada dos níveis dos critérios, de 0 (situação mais simples) a 100 (mais complexa). A linha do meio fica em 50; um ponto exatamente sobre ela conta como lado alto.</p>
+        ${marcaCaixa('Mostrar o mapa no plano', 'mapa.ativo')}
+        ${marcaCaixa('Mostrar a posição de cada participante', 'mapa.mostrar_participantes')}
+        ${texto('Título da seção', 'mapa.titulo')}
+        <div class="ed-g2"><div>${texto('Rótulo da ponta inicial dos eixos', 'mapa.rotulo_menor')}</div><div>${texto('Rótulo da ponta final dos eixos', 'mapa.rotulo_maior')}</div></div>
+        ${texto('Frase de leitura', 'mapa.texto', 'Marcadores: {quadrante} (nome do quadrante), {descricao} (descrição do quadrante), {x} e {y} (posição de 0 a 100).')}
+        <div class="ed-g2">${eixo('eixo_x', 'horizontal')}${eixo('eixo_y', 'vertical')}</div>
+        <div class="ed-card"><div class="ed-card-head"><b>Quadrantes</b></div>
+          <div class="ed-g2">${quad('superior_esquerdo', 'Superior esquerdo')}${quad('superior_direito', 'Superior direito')}
+          ${quad('inferior_esquerdo', 'Inferior esquerdo')}${quad('inferior_direito', 'Inferior direito')}</div></div>`;
+    },
+
     geral() {
       return `<h2>Consenso e etapas em paralelo</h2>
         <div class="ed-card"><div class="ed-card-head"><b>Consenso na consolidação</b></div>
@@ -273,6 +295,7 @@
       </div>`).join('')}
       <h3>Pontos de atenção</h3>${p.atencao.length ? `<ul>${p.atencao.map(a => `<li><b>${esc(a.titulo)}</b> — ${esc(a.acao)} <span class="ed-hint">(${esc(a.motivo)})</span></li>`).join('')}</ul>` : '<p class="ed-hint">Nenhum.</p>'}
       <h3>Envolvimento</h3><p>${esc(p.envolvimento) || '<span class="ed-hint">Nenhuma regra de envolvimento se aplicou.</span>'}</p>
+      <h3>Mapa do diagnóstico</h3><p>${p.mapa ? `${esc(p.mapa.texto)} <span class="ed-hint">(posição: ${Math.round(p.mapa.grupo.x)} no eixo horizontal, ${Math.round(p.mapa.grupo.y)} no vertical)</span>` : '<span class="ed-hint">Mapa desativado.</span>'}</p>
     </div>`;
     box.scrollIntoView({behavior: 'smooth', block: 'start'});
   }
@@ -306,6 +329,7 @@
     else if (kind === 'lines') set(p, el.value.split('\n').map(s => s.trim()).filter(Boolean));
     else if (kind === 'bool') set(p, el.checked);
     else if (kind === 'pct') { const v = Number(el.value); if (!isNaN(v)) set(p, Math.round(v * 100) / 10000); }
+    else if (kind === 'num') { const v = Number(el.value); if (el.value !== '' && !isNaN(v)) set(p, v); }
     else if (kind === 'select') set(p, el.value);
     else if (kind === 'set') {
       const val = el.dataset.num ? Number(el.dataset.val) : el.dataset.val;
@@ -325,13 +349,13 @@
 
   ed.addEventListener('input', ev => {
     const el = ev.target;
-    if (el.dataset.path && ['text', 'lines', 'pct'].includes(el.dataset.kind)) { aplicar(el); marcar(); }
+    if (el.dataset.path && ['text', 'lines', 'pct', 'num'].includes(el.dataset.kind)) { aplicar(el); marcar(); }
   });
   ed.addEventListener('change', ev => {
     const el = ev.target;
     if (el.id === 'filtro-tecnicas') { filtroTecnicas = el.value; render(); return; }
     if (el.dataset.perfil) { perfil[el.dataset.perfil] = el.type === 'checkbox' ? el.checked : (el.dataset.perfil.startsWith('C') ? Number(el.value) : el.value); return; }
-    if (!el.dataset.path || ['text', 'lines', 'pct'].includes(el.dataset.kind)) return;
+    if (!el.dataset.path || ['text', 'lines', 'pct', 'num'].includes(el.dataset.kind)) return;
     const rerender = aplicar(el);
     marcar();
     if (rerender || el.dataset.kind === 'bool' && el.dataset.path.endsWith('sempre_presente')) render();
